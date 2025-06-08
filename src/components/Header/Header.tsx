@@ -50,13 +50,13 @@ const Header = () => {
                 >
                   <div className="py-2">
                     <a 
-                      href="#" 
+                      href="/chart" 
                       className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
                     >
                       Charts
                     </a>
                     <a 
-                      href="#" 
+                      href="/savedcharts" 
                       className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
                     >
                       Saved Charts
