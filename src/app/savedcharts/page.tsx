@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header/Header';
 import { 
   BarChart3, 
@@ -20,12 +21,12 @@ import {
 } from 'lucide-react';
 
 const SavedCharts = () => {
+  const router = useRouter();
   const [savedCharts, setSavedCharts] = useState([]);
   const [filteredCharts, setFilteredCharts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-  const [selectedChart, setSelectedChart] = useState(null);
 
   // Mock data for saved charts
   useEffect(() => {
@@ -191,9 +192,8 @@ const SavedCharts = () => {
   }, [savedCharts, searchTerm, filterType, sortBy]);
 
   const handleChartSelect = (chart) => {
-    setSelectedChart(chart);
-    // In a real app, you might navigate to a detailed view or trading interface
-    console.log('Selected chart:', chart);
+    // Navigate to ViewChart page with the chart ID
+    router.push(`/viewchart/${chart.id}`);
   };
 
   const handleDeleteChart = (chartId, e) => {
@@ -412,56 +412,6 @@ const SavedCharts = () => {
                 : 'Start by generating and saving some trading signals'
               }
             </p>
-          </div>
-        )}
-
-        {/* Selected Chart Modal/Preview (Optional) */}
-        {selectedChart && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-white">
-                    {selectedChart.assetName} - {selectedChart.patternName}
-                  </h2>
-                  <button
-                    onClick={() => setSelectedChart(null)}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <XCircle size={24} />
-                  </button>
-                </div>
-                
-                <img
-                  src={selectedChart.chartImage}
-                  alt={`${selectedChart.assetName} Chart`}
-                  className="w-full h-64 object-cover rounded-lg mb-4"
-                />
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <strong className="text-gray-300">Recommendation:</strong>
-                    <div className={`font-semibold ${
-                      selectedChart.recommendation === 'Buy' ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      {selectedChart.recommendation}
-                    </div>
-                  </div>
-                  <div>
-                    <strong className="text-gray-300">Confidence:</strong>
-                    <div className="text-white">{selectedChart.confidence}%</div>
-                  </div>
-                  <div>
-                    <strong className="text-gray-300">Entry Price:</strong>
-                    <div className="text-white font-mono">${selectedChart.priceTargets.entry}</div>
-                  </div>
-                  <div>
-                    <strong className="text-gray-300">Risk/Reward:</strong>
-                    <div className="text-blue-400">{selectedChart.riskReward}:1</div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>
