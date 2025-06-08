@@ -59,16 +59,19 @@ const Header = () => {
                       href="#" 
                       className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
                     >
+                      Saved Charts
+                    </a>
+                    <a 
+                      href="#" 
+                      className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
+                    >
                       My Signals
                     </a>
                   </div>
                 </div>
               )}
             </div>
-            
-            <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">
-              About
-            </a>
+           
           </nav>
 
           {/* CTA Buttons */}

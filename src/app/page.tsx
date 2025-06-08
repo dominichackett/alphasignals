@@ -1,6 +1,12 @@
 'use client'
 import React from 'react';
 import Header from '@/components/Header/Header';
+const logos = [
+  { id: 1, src: '/logo/lit.jfif', alt: 'Logo 1' },
+  { id: 2, src: '/logo/vincent.png', alt: 'Logo 2' },
+  { id: 3, src: '/logo/agentwallet.jfif', alt: 'Logo 3' },
+  { id: 4, src: '/logo/filecoin.png', alt: 'Logo 4' },
+];
 const LitProtocolStyles = () => {
 
   return (
@@ -43,14 +49,14 @@ Join the traders and builders leveraging intelligent analysis and a marketplace 
       <section className="py-16 px-6">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-            Securing the Decentralized World
+            AI Powered Trading Singals
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center space-y-4">
               <div className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
                 $154M+
               </div>
-              <div className="text-gray-400 text-lg">Total Value Managed</div>
+              <div className="text-gray-400 text-lg">Trading Volume</div>
             </div>
             <div className="text-center space-y-4">
               <div className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
@@ -60,9 +66,9 @@ Join the traders and builders leveraging intelligent analysis and a marketplace 
             </div>
             <div className="text-center space-y-4">
               <div className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                30M+
+                120K
               </div>
-              <div className="text-gray-400 text-lg">Data Points Decrypted</div>
+              <div className="text-gray-400 text-lg">Singals Generated</div>
             </div>
           </div>
         </div>
@@ -80,64 +86,65 @@ Join the traders and builders leveraging intelligent analysis and a marketplace 
                 Universal Accounts For User Controlled Automation
               </p>
               <p className="text-gray-300 text-lg leading-relaxed">
-                Unlock true agent autonomy without sacrificing user control. 
-                Define exactly what agents can do through user-delegated permissions 
-                and policies enforced by Lit Actions.
+               Let our agents trade your signals.
+               User defined agent trading.
               </p>
               <ul className="space-y-3 text-gray-300">
-                <li className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span>Universal accounts for every chain and platform</span>
-                </li>
+              
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                   <span>User authorization</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span>On-chain, open source tools</span>
+                  <span>On-chain, Trading</span>
                 </li>
               </ul>
-              <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105">
-                Create Agent Wallets
-              </button>
+            
             </div>
             <div className="relative">
-              <div className="w-full h-64 bg-gradient-to-br from-purple-900/30 to-pink-900/30 rounded-2xl border border-purple-500/20"></div>
-            </div>
+<div 
+  className="w-full h-96 rounded-2xl border border-purple-500/20 bg-cover bg-center bg-no-repeat"
+  style={{ backgroundImage: 'url(/wallet.png)' }}
+>
+
+</div>            </div>
           </div>
 
           {/* Interoperability */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative order-2 lg:order-1">
-              <div className="w-full h-64 bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-2xl border border-blue-500/20"></div>
+           <div 
+  className="w-full h-256 rounded-2xl border border-blue-500/20 bg-cover bg-center bg-no-repeat relative"
+  style={{ backgroundImage: 'url(/trading.png)' }}
+>
+  <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-2xl"></div>
+</div>
             </div>
             <div className="space-y-6 order-1 lg:order-2">
-              <h3 className="text-4xl font-bold">Interoperability</h3>
+              <h3 className="text-4xl font-bold">AI Trading Signals</h3>
               <p className="text-xl text-blue-300">
-                Program Private Keys
+                AI Technical Analysis 
               </p>
               <p className="text-gray-300 text-lg leading-relaxed">
-                Break down blockchain silos with programmable private keys for seamless 
-                interoperability. Lit Actions allow you to embed immutable signing logic.
+                Trend or Momentum Trading analysis perfomred by artificial intelligence 
+                . Trading signal generation.
               </p>
               <ul className="space-y-3 text-gray-300">
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>Automate cross-chain liquidity</span>
+                  <span>AI generated trading signals</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>Build secure, programmable vaults</span>
+                  <span>List your signals</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>Unify disparate Web3 and Web2 systems</span>
+                  <span>Trade your signals</span>
                 </li>
               </ul>
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105">
-                Build with Lit Actions
-              </button>
+              
             </div>
           </div>
 
@@ -147,30 +154,27 @@ Join the traders and builders leveraging intelligent analysis and a marketplace 
       {/* Network Features */}
       <section className="py-20 px-6 bg-gradient-to-b from-transparent to-gray-900/50">
         <div className="max-w-6xl mx-auto text-center space-y-16">
-          <h2 className="text-4xl md:text-5xl font-bold">The Lit Network</h2>
+          <h2 className="text-4xl md:text-5xl font-bold">Alpha Signals Feature</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-4 p-6 rounded-xl bg-gray-900/50 border border-gray-700/50">
-              <h3 className="text-2xl font-bold text-purple-300">Defense in Depth</h3>
+              <h3 className="text-2xl font-bold text-purple-300">Trading View Charts</h3>
               <p className="text-gray-300 leading-relaxed">
-                Combines Threshold Multi-Party Computation (MPC) and Trusted 
-                Execution Environments (TEE) to secure keys with multiple layers.
+                Integrates TradingView Charts to provide advanced, real-time market data visualization with interactive technical analysis tools.
               </p>
             </div>
             
             <div className="space-y-4 p-6 rounded-xl bg-gray-900/50 border border-gray-700/50">
-              <h3 className="text-2xl font-bold text-blue-300">Scalability</h3>
+              <h3 className="text-2xl font-bold text-blue-300">AI Trading Signals</h3>
               <p className="text-gray-300 leading-relaxed">
-                Deploy applications confidently on a globally distributed network 
-                that scales horizontally without sacrificing security.
+                Leverages AI-powered trading signals to analyze market trends and deliver real-time, data-driven trade recommendations with high accuracy.
               </p>
             </div>
             
             <div className="space-y-4 p-6 rounded-xl bg-gray-900/50 border border-gray-700/50">
-              <h3 className="text-2xl font-bold text-green-300">Orchestrate Any Secret</h3>
+              <h3 className="text-2xl font-bold text-green-300">Automated Trading</h3>
               <p className="text-gray-300 leading-relaxed">
-                Manage any private key, credential, or sensitive data across 
-                Web3, AI, cloud, and beyond with programmable signing.
+                Enables automated trading by executing predefined strategies in real-time, reducing human error and ensuring fast, consistent trade execution.
               </p>
             </div>
           </div>
@@ -182,11 +186,15 @@ Join the traders and builders leveraging intelligent analysis and a marketplace 
         <div className="max-w-6xl mx-auto text-center space-y-8">
           <h3 className="text-2xl text-gray-400">Integrated with</h3>
           <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
-            {[1,2,3,4,5].map((i) => (
-              <div key={i} className="w-32 h-16 bg-gray-800 rounded-lg flex items-center justify-center">
-                <div className="w-20 h-8 bg-gray-700 rounded"></div>
-              </div>
-            ))}
+           {logos.map((logo) => (
+  <div key={logo.id} className="w-32 h-16 bg-gray-800 rounded-lg flex items-center justify-center">
+    <img 
+      src={logo.src} 
+      alt={logo.alt}
+      className="w-60 h-16 object-cover rounded-md"
+    />
+  </div>
+))}
           </div>
         </div>
       </section>
