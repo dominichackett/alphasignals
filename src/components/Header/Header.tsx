@@ -24,7 +24,7 @@ const Header = () => {
              <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">
               Home
             </a>
-            <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">
+            <a href="/signals" className="text-gray-300 hover:text-white transition-colors duration-200">
               Signals
             </a>
             
@@ -62,10 +62,16 @@ const Header = () => {
                       Saved Charts
                     </a>
                     <a 
-                      href="#" 
+                      href="/mysignals" 
                       className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
                     >
                       My Signals
+                    </a>
+                     <a 
+                      href="/mytrades" 
+                      className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
+                    >
+                      My Trades
                     </a>
                   </div>
                 </div>
