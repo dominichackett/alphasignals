@@ -24,70 +24,238 @@ const Chart = () => {
     { value: 'pattern', label: 'Pattern Analysis', icon: BarChart3 }
   ];
 
-  const generateSignal = async () => {
-    setIsGenerating(true);
-    
-    // Reset completion states when generating new signal
-    setIsSaved(false);
-    setIsPosted(false);
-    setSaveStatus('');
-    setBlockchainStatus('');
-    setTradeStatus('');
-    
-    // Simulate AI analysis like your actual implementation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate mock data similar to your AI response structure
-    const assets = ['NASDAQ:AAPL', 'NASDAQ:TSLA', 'NASDAQ:GOOGL', 'NASDAQ:MSFT', 'BINANCE:BTCUSDT'];
-    const patterns = selectedAnalysis === 'trend' 
-      ? ['EMA Crossover', 'Support/Resistance Bounce with Candlestick Confirmation', 'Bollinger Band Squeeze Breakout']
-      : ['Head and Shoulders', 'Double Top', 'Triangle Pattern', 'Flag Pattern', 'Wedge Pattern'];
-    
-    const sentiments = ['Bullish', 'Bearish'];
-    const recommendations = ['Buy', 'Sell', 'Hold'];
-    
-    const sentiment = sentiments[Math.floor(Math.random() * sentiments.length)];
-    const confidence = Math.floor(Math.random() * 40) + 60;
-    const currentPrice = 150 + Math.random() * 100;
-    
-    const newSignal = {
-      assetName: assets[Math.floor(Math.random() * assets.length)],
-      assetType: assets[Math.floor(Math.random() * assets.length)].includes('BINANCE') ? 'Crypto' : 'Stock',
-      patternName: patterns[Math.floor(Math.random() * patterns.length)],
-      sentiment: sentiment,
-      confidence: confidence,
-      description: `${sentiment} ${patterns[Math.floor(Math.random() * patterns.length)]} pattern identified with ${confidence}% confidence`,
-      recommendation: sentiment === 'Bullish' ? 'Buy' : sentiment === 'Bearish' ? 'Sell' : 'Hold',
-      recommendationReason: `${sentiment} momentum detected based on ${selectedAnalysis} analysis`,
-      priceTargets: {
-        resistance: Math.round((currentPrice + Math.random() * 20) * 100) / 100,
-        support: Math.round((currentPrice - Math.random() * 20) * 100) / 100,
-        target: Math.round((currentPrice + (sentiment === 'Bullish' ? 1 : -1) * (Math.random() * 30 + 10)) * 100) / 100,
-        entry: Math.round(currentPrice * 100) / 100,
-        exit: Math.round((currentPrice + (sentiment === 'Bullish' ? 1 : -1) * (Math.random() * 25 + 15)) * 100) / 100,
-        stopLoss: Math.round((currentPrice - (sentiment === 'Bullish' ? 1 : -1) * (Math.random() * 10 + 5)) * 100) / 100
-      },
-      riskReward: Math.round((Math.random() * 3 + 1) * 100) / 100,
-      timestamp: new Date().toISOString(),
-      indicators: [
-        {
-          name: 'RSI',
-          value: Math.floor(Math.random() * 100).toString(),
-          interpretation: sentiment === 'Bullish' ? 'Bullish momentum building' : 'Bearish momentum building'
-        },
-        {
-          name: 'MACD',
-          value: sentiment === 'Bullish' ? 'Positive crossover' : 'Negative crossover',
-          interpretation: sentiment === 'Bullish' ? 'Confirming uptrend' : 'Confirming downtrend'
-        }
-      ]
-    };
-    
-    // Replace the current signal (only keep one like your AI implementation)
-    setSignals([newSignal]);
-    setIsGenerating(false);
-  };
+const generateSignal = async () => {
+  setIsGenerating(true);
+  
+  // Reset completion states when generating new signal
+  setIsSaved(false);
+  setIsPosted(false);
+  setSaveStatus('');
+  setBlockchainStatus('');
+  setTradeStatus('');
 
+  try {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined') {
+      throw new Error('Screenshot capture only works in browser environment');
+    }
+
+    // Method 1: Try to use the browser's native screenshot API if available
+    let base64Image;
+    
+    try {
+      // Use getDisplayMedia to capture screen
+      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            mediaSource: 'screen'
+          }
+        });
+
+        // Create video element to capture frame
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+
+        // Wait for video to load
+        await new Promise((resolve) => {
+          video.onloadedmetadata = resolve;
+        });
+
+        // Create canvas and capture frame
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        // Stop the stream
+        stream.getTracks().forEach(track => track.stop());
+
+        // Convert to base64
+        base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      } else {
+        throw new Error('Screen capture not supported');
+      }
+    } catch (screenCaptureError) {
+      console.warn('Screen capture failed, trying alternative method:', screenCaptureError);
+      
+      // Method 2: Alternative approach using html2canvas with better configuration
+      const chartContainer = container.current;
+      if (!chartContainer) {
+        throw new Error('Chart container not found');
+      }
+
+      // Wait a bit for the chart to fully load
+     // await new Promise(resolve => setTimeout(resolve, 2000));
+     
+      const html2canvas = (await import('html2canvas')).default;
+      
+      // Try to capture with different settings
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 0.5,
+        logging: true,
+        backgroundColor: '#1a1a1a',
+        foreignObjectRendering: false,
+        removeContainer: false,
+        imageTimeout: 30000,
+        onclone: (clonedDoc) => {
+          // Remove any elements that might cause issues
+          const iframes = clonedDoc.querySelectorAll('iframe');
+          iframes.forEach(iframe => {
+            const placeholder = clonedDoc.createElement('div');
+            placeholder.style.width = iframe.offsetWidth + 'px';
+            placeholder.style.height = iframe.offsetHeight + 'px';
+            placeholder.style.backgroundColor = '#2d3748';
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.color = 'white';
+            placeholder.style.fontSize = '16px';
+            placeholder.textContent = 'TradingView Chart';
+            iframe.parentNode.replaceChild(placeholder, iframe);
+          });
+        }
+      });
+
+      // Convert canvas to base64
+      base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    }
+
+    // Validate that we have a proper image
+    if (!base64Image || base64Image.length < 1000) {
+      throw new Error('Failed to capture a valid chart image');
+    }
+     setSignals([])
+    const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: selectedAnalysis === "trend" ? 
+                "You are a professional trading chart analyzer. Examine this trading chart image carefully. Your primary goal is to identify if one of the following specific trading strategies is clearly present and actionable:\n\n1. **EMA Crossover:** (e.g., a shorter-period EMA like 9 or 20 crossing a longer-period EMA like 21 or 50). Note the EMAs involved if identifiable from the chart's indicators.\n2. **Support/Resistance Bounce with Candlestick Confirmation:** (e.g., price testing a clear horizontal support or resistance level and forming a distinct reversal candlestick pattern like a Pin Bar, Engulfing, Hammer, or Shooting Star). Note the S/R level and the candlestick pattern.\n3. **Bollinger Band Squeeze Breakout:** (Bollinger Bands narrow significantly, indicating a \"squeeze,\" then price breaks out decisively above the upper band or below the lower band).\n\nIf one of these three strategies is identified, populate the JSON accordingly. If multiple seem to apply, choose the most dominant or clearest one.\n\nRespond ONLY with a valid JSON object containing these fields:\n`{ \"assetName\": \"Name or ticker symbol of the asset shown\", \"assetType\": \"Stock, Crypto, Forex, or Commodity\", \"patternName\": \"One of: 'EMA Crossover', 'Support/Resistance Bounce with Candlestick Confirmation', 'Bollinger Band Squeeze Breakout', or if none of these are clearly present, 'None of the specified strategies identified'\", \"sentiment\": \"Bullish or Bearish (based on the identified strategy's typical implication)\", \"confidence\": 85, \"description\": \"Brief description of how the identified strategy is manifesting on the chart. If 'None of the specified strategies identified', explain why or what else is observed.\", \"recommendation\": \"Buy, Sell, Hold, or Unknown (based on the strategy's signal)\", \"recommendationReason\": \"Brief explanation for the recommendation tied directly to the rules/logic of the identified strategy (e.g., 'Fast EMA crossed above Slow EMA', 'Bullish pin bar at support', 'Breakout above Bollinger Band after squeeze').\", \"priceTargets\": { \"resistance\": 175.50, \"support\": 142.30, \"target\": 185.00, \"entry\": 150.25, \"exit\": 182.75, \"stopLoss\": 145.50 }, \"riskReward\": 2.5, \"timestamp\": \"2025-05-10T14:30:00Z\", \"indicators\": [ { \"name\": \"RSI\", \"value\": \"65\", \"interpretation\": \"Bullish momentum building\" } ] }`\nFor the \"priceTargets\" sub-object, resistance is a general key resistance level visible on the chart, or next logical target for a long position based on the strategy; support is a general key support level visible on the chart, or next logical target for a short position based on the strategy; target is a specific price target based on the strategy's typical expectation (e.g., next S/R, measured move, or fixed R:R); entry is the recommended entry point according to the identified strategy's rules (e.g., close of breakout candle, open of next candle after confirmation); exit is the recommended take profit point for the strategy; and stopLoss is the stop loss level according to the identified strategy's rules (e.g., below swing low/EMA for crossover, beyond S/R or candle extreme for bounce, other side of squeeze for BB breakout).\nFor the \"riskReward\" field, it should be the calculated Risk-reward ratio: (exit - entry) / (entry - stopLoss) for long, or (entry - exit) / (stopLoss - entry) for short. If not calculable, set to null or 0.\nFor the \"indicators\" array, list indicators that are *key* to the identified strategy. For example, for EMA Crossover: `[ { \"name\": \"Fast EMA\", \"value\": \"e.g., 20-period\", \"interpretation\": \"Crossed above Slow EMA indicating bullish momentum\" }, { \"name\": \"Slow EMA\", \"value\": \"e.g., 50-period\", \"interpretation\": \"Currently below Fast EMA\" } ]`. For S/R Bounce: `[ { \"name\": \"Support Level\", \"value\": \"e.g., 1.1200\", \"interpretation\": \"Price tested and bounced from this level\" }, { \"name\": \"Candlestick Pattern\", \"value\": \"e.g., Bullish Pin Bar\", \"interpretation\": \"Indicates buying pressure at support\" } ]`. For Bollinger Band Squeeze Breakout: `[ { \"name\": \"Bollinger Bands\", \"value\": \"e.g., (20, 2)\", \"interpretation\": \"Squeeze identified, price broke above upper band\" } ]`. If 'None of the specified strategies identified', list any visible standard indicators and their readings.\n\nIf the chart is unclear, you cannot confidently identify the asset, or none of the three specified strategies are clearly present, still return a complete JSON. In such cases, set `patternName` to \"None of the specified strategies identified\" or \"Unknown\" if even that is unclear. Set other unidentifiable or inapplicable fields to \"Unknown\", null, or reasonable defaults (e.g., confidence low, recommendation \"Hold\" or \"Unknown\"). Include any uncertainty in the `description` field.\n\nThe response must be ONLY the JSON object with no additional text."
+                :
+                "You are a professional trading chart analyzer. Examine this trading chart image carefully and identify the asset/stock/cryptocurrency being displayed and any technical patterns present. Respond ONLY with a valid JSON object containing these fields:\n\n{\n  \"assetName\": \"Name or ticker symbol of the asset shown\",\n  \"assetType\": \"Stock, Crypto, Forex, or Commodity\",\n  \"patternName\": \"Name of the pattern you identified\",\n  \"sentiment\": \"Bullish or Bearish\",\n  \"confidence\": 85, // Confidence percentage (number between 1-100)\n  \"description\": \"Brief description of what this pattern indicates\",\n  \"recommendation\": \"Buy\", // Must be one of: Buy, Sell, Hold, or Unknown\n  \"recommendationReason\": \"Brief explanation for the buy/sell/hold recommendation\",\n  \"priceTargets\": {\n    \"resistance\": 175.50, // Key resistance level\n    \"support\": 142.30, // Key support level\n    \"target\": 185.00, // Price target based on the pattern\n    \"entry\": 150.25, // Recommended entry point\n    \"exit\": 182.75, // Recommended exit point\n    \"stopLoss\": 145.50 // Stop loss level to minimize risk\n  },\n  \"riskReward\": 2.5, // Risk-reward ratio (potential profit / potential loss)\n  \"timestamp\": \"2025-05-10T14:30:00Z\", // Current time when analysis was performed\n  \"indicators\": [\n    {\n      \"name\": \"RSI\",\n      \"value\": \"65\",\n      \"interpretation\": \"Bullish momentum building\"\n    },\n    {\n      \"name\": \"MACD\",\n      \"value\": \"Positive crossover\",\n      \"interpretation\": \"Confirming uptrend\"\n    }\n  ]\n}\n\nIf the chart is unclear or you cannot confidently identify the asset or pattern, still return a complete JSON but set the unidentifiable fields (like assetName) to \"Unknown\" and include the uncertainty in the description field. The response must be ONLY the JSON object with no additional text."
+            },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Image
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 8192,
+      }
+    };
+
+    const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      throw new Error(`Gemini API error: ${geminiResponse.status} - ${errorText}`);
+    }
+
+    const geminiData = await geminiResponse.json();
+    console.log("Raw Gemini API Response:", JSON.stringify(geminiData, null, 2));
+    
+    // Extract text from Gemini response
+    let fullText = '';
+    
+    if (geminiData.candidates && geminiData.candidates.length > 0) {
+      const candidate = geminiData.candidates[0];
+      if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            fullText += part.text;
+          }
+        }
+      }
+    }
+    
+    if (!fullText) {
+      throw new Error('No response received from Gemini API');
+    }
+
+    console.log("Extracted text from Gemini:", fullText);
+
+    // Parse the JSON response from Gemini
+    let parsedSignal;
+    try {
+      // Clean the response text (remove any markdown formatting or extra text)
+      const cleanedText = fullText.replace(/```json\n?|\n?```/g, '').trim();
+      
+      // Find JSON object in the response
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON object found in Gemini response');
+      }
+      
+      parsedSignal = JSON.parse(jsonMatch[0]);
+      
+      // Validate required fields
+      if (!parsedSignal.assetName || !parsedSignal.patternName) {
+        throw new Error('Invalid signal data received from Gemini');
+      }
+      
+      // Ensure timestamp is current
+      parsedSignal.timestamp = new Date().toISOString();
+      
+      // Validate and fix price targets if needed
+      if (parsedSignal.priceTargets) {
+        Object.keys(parsedSignal.priceTargets).forEach(key => {
+          if (typeof parsedSignal.priceTargets[key] === 'string') {
+            parsedSignal.priceTargets[key] = parseFloat(parsedSignal.priceTargets[key]) || 0;
+          }
+        });
+      }
+      
+      // Ensure confidence is a number
+      if (typeof parsedSignal.confidence === 'string') {
+        parsedSignal.confidence = parseInt(parsedSignal.confidence) || 0;
+      }
+      
+      // Ensure riskReward is a number
+      if (typeof parsedSignal.riskReward === 'string') {
+        parsedSignal.riskReward = parseFloat(parsedSignal.riskReward) || 0;
+      }
+      
+    } catch (parseError) {
+      console.error('Error parsing Gemini response:', parseError);
+      console.error('Raw response:', fullText);
+      throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
+    }
+
+    // Set the parsed signal
+    setSignals([parsedSignal]);
+    setIsGenerating(false);
+    
+  } catch (error) {
+    console.error('Error generating signal:', error);
+    setIsGenerating(false);
+    
+    // Show error to user
+    alert(`Error generating signal: ${error.message}`);
+    
+
+  }
+};
   const saveAnalysis = async () => {
     if (signals.length === 0) return;
     
