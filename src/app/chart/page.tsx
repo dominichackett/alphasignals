@@ -397,7 +397,7 @@ const generateSignal = async () => {
     
     // Use single API endpoint
     const elizaApiUrl = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'http://localhost:3000';
-    const endpoint = `${elizaApiUrl}/api/messaging/central-channels/88241a47-b22c-4058-aa6f-27d87c7e8c83/messages`;
+    const endpoint = `${elizaApiUrl}/api/messaging/central-channels/f2d40929-878c-4494-8c21-d7609acea4e7/messages`;
 
     // Prepare message
     const analysisMessage = includeImage ? 
@@ -405,26 +405,28 @@ const generateSignal = async () => {
         "Analyze this trading chart for trend patterns including EMA crossovers, support/resistance bounces, and Bollinger Band squeezes. Please provide a detailed technical analysis with specific price targets and risk management recommendations." :
         "Perform comprehensive technical analysis on this trading chart. Identify patterns, support/resistance levels, and provide detailed trading recommendations with price targets.") :
       `Perform ${selectedAnalysis === "trend" ? 'trend-focused' : 'general'} technical analysis. I was unable to send the chart image due to size constraints, but please provide a template analysis showing what information you would typically extract from trading charts, including asset identification, pattern recognition, price targets, and trading recommendations.`;
+const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
 
   const requestBody = {
-  channelId: "88241a47-b22c-4058-aa6f-27d87c7e8c83", // Your actual channel ID
+  channelId: "f2d40929-878c-4494-8c21-d7609acea4e7", // Your actual channel ID
   server_id: "00000000-0000-0000-0000-000000000000",
   author_id: `a9308c87-8a1c-4d75-aff6-d5a390b467cb`, // Changed from senderId
   content: analysisMessage, // Changed from text
   source_type: "eliza_gui", // Changed from source
+
   metadata: {
     user_display_name: "Chart Analyst"
   },
-  ...(includeImage && {
+  
     attachments: [{
       type: "image",
       contentType: "image/jpeg", 
-      data: base64Image,
+      data: cleanBase64,
       name: `trading_chart_${Date.now()}.jpg`
     }]
-  })
+  
 };
-
+   console.log(`Include image:${includeImage}`)
     console.log(`🌐 Calling endpoint: ${endpoint}`);
     
     // Calculate payload size
