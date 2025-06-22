@@ -24,173 +24,6 @@ const Chart = () => {
     { value: 'pattern', label: 'Pattern Analysis', icon: BarChart3 }
   ];
 
-// Helper function to compress images for ElizaOS
-function compressImage(canvas, quality = 0.3) {
-  return canvas.toDataURL('image/jpeg', quality).split(',')[1];
-}
-
-// Helper function to extract values from text using regex
-function extractValue(text, regex) {
-  const match = text.match(regex);
-  return match ? match[1].trim() : null;
-}
-
-// Create fallback signal if parsing fails
-function createFallbackSignal(responseText, analysisType) {
-  return {
-    assetName: "Chart Analysis",
-    assetType: "Unknown", 
-    patternName: `${analysisType} Analysis`,
-    sentiment: "Neutral",
-    confidence: 75,
-    description: `ElizaOS Agent Response: ${responseText.substring(0, 200)}...`,
-    recommendation: "Hold",
-    recommendationReason: "Fallback response due to parsing error",
-    priceTargets: {
-      resistance: null,
-      support: null, 
-      target: null,
-      entry: null,
-      exit: null,
-      stopLoss: null
-    },
-    riskReward: null,
-    timestamp: new Date().toISOString(),
-    indicators: [
-      {
-        name: "Status",
-        value: "Parsing Error",
-        interpretation: "Response received but structure parsing failed"
-      }
-    ]
-  };
-}
-
-// Enhanced response parser for ElizaOS responses
-function parseElizaResponse(responseText, analysisType) {
-  try {
-    console.log('🔍 Parsing ElizaOS response:', responseText.substring(0, 200));
-    
-    // Try to find and parse JSON first
-    const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
-    
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        console.log('✅ Successfully parsed JSON from response:', parsed);
-        
-        if (parsed.assetName || parsed.patternName || parsed.sentiment) {
-          return {
-            ...parsed,
-            timestamp: new Date().toISOString(),
-            confidence: Number(parsed.confidence) || 75,
-            riskReward: Number(parsed.riskReward) || null,
-            // Ensure priceTargets are numbers
-            priceTargets: parsed.priceTargets ? {
-              resistance: Number(parsed.priceTargets.resistance) || null,
-              support: Number(parsed.priceTargets.support) || null,
-              target: Number(parsed.priceTargets.target) || null,
-              entry: Number(parsed.priceTargets.entry) || null,
-              exit: Number(parsed.priceTargets.exit) || null,
-              stopLoss: Number(parsed.priceTargets.stopLoss) || null,
-            } : {
-              resistance: null,
-              support: null,
-              target: null,
-              entry: null,
-              exit: null,
-              stopLoss: null
-            }
-          };
-        }
-      } catch (jsonError) {
-        console.log('⚠️ JSON parsing failed, falling back to text parsing:', jsonError);
-      }
-    }
-    
-    // Fallback: create structured response from text analysis
-    console.log('📝 Creating structured response from text analysis');
-    
-    return {
-      assetName: extractValue(responseText, /asset[:\s]+([^\n,]+)/i) || "Chart Analysis",
-      assetType: extractValue(responseText, /type[:\s]+([^\n,]+)/i) || "Unknown",
-      patternName: extractValue(responseText, /pattern[:\s]+([^\n,]+)/i) || `${analysisType} Analysis`,
-      sentiment: extractValue(responseText, /sentiment[:\s]+([^\n,]+)/i) || "Neutral",
-      confidence: Number(extractValue(responseText, /confidence[:\s]+(\d+)/i)) || 75,
-      description: responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''),
-      recommendation: extractValue(responseText, /recommendation[:\s]+([^\n,]+)/i) || "Hold",
-      recommendationReason: "Analysis completed by ElizaOS trading agent",
-      priceTargets: {
-        resistance: Number(extractValue(responseText, /resistance[:\s]+[\$]?([0-9.,]+)/i)?.replace(',', '')) || null,
-        support: Number(extractValue(responseText, /support[:\s]+[\$]?([0-9.,]+)/i)?.replace(',', '')) || null,
-        target: Number(extractValue(responseText, /target[:\s]+[\$]?([0-9.,]+)/i)?.replace(',', '')) || null,
-        entry: Number(extractValue(responseText, /entry[:\s]+[\$]?([0-9.,]+)/i)?.replace(',', '')) || null,
-        exit: Number(extractValue(responseText, /exit[:\s]+[\$]?([0-9.,]+)/i)?.replace(',', '')) || null,
-        stopLoss: Number(extractValue(responseText, /stop.?loss[:\s]+[\$]?([0-9.,]+)/i)?.replace(',', '')) || null,
-      },
-      riskReward: Number(extractValue(responseText, /risk.?reward[:\s]+([0-9.]+)/i)) || null,
-      timestamp: new Date().toISOString(),
-      indicators: [
-        {
-          name: "ElizaOS Agent Analysis",
-          value: "Completed",
-          interpretation: "Chart analyzed by AI trading agent"
-        }
-      ]
-    };
-    
-  } catch (error) {
-    console.error('💥 Error parsing response:', error);
-    return createFallbackSignal(responseText, analysisType);
-  }
-}
-
-// Function to parse text-only responses when no JSON is found
-function parseTextResponseToSignal(responseText, analysisType) {
-  console.log('📄 Parsing text-only response to create signal structure');
-  
-  // Look for common trading terms and extract information
-  const bullishWords = ['bullish', 'buy', 'long', 'upward', 'positive', 'strong'];
-  const bearishWords = ['bearish', 'sell', 'short', 'downward', 'negative', 'weak'];
-  
-  const lowerText = responseText.toLowerCase();
-  let sentiment = 'Neutral';
-  
-  if (bullishWords.some(word => lowerText.includes(word))) {
-    sentiment = 'Bullish';
-  } else if (bearishWords.some(word => lowerText.includes(word))) {
-    sentiment = 'Bearish';
-  }
-  
-  return {
-    assetName: "Chart Analysis",
-    assetType: "Unknown",
-    patternName: analysisType === "trend" ? "Trend Analysis" : "Technical Analysis",
-    sentiment: sentiment,
-    confidence: 80,
-    description: responseText.substring(0, 400) + (responseText.length > 400 ? '...' : ''),
-    recommendation: sentiment === 'Bullish' ? 'Buy' : sentiment === 'Bearish' ? 'Sell' : 'Hold',
-    recommendationReason: "Based on ElizaOS agent text analysis",
-    priceTargets: {
-      resistance: null,
-      support: null,
-      target: null,
-      entry: null,
-      exit: null,
-      stopLoss: null
-    },
-    riskReward: null,
-    timestamp: new Date().toISOString(),
-    indicators: [
-      {
-        name: "Text Analysis",
-        value: "Completed",
-        interpretation: `Detected ${sentiment.toLowerCase()} sentiment from agent response`
-      }
-    ]
-  };
-}
-
 const generateSignal = async () => {
   setIsGenerating(true);
   
@@ -202,423 +35,227 @@ const generateSignal = async () => {
   setTradeStatus('');
 
   try {
-    console.log('🚀 Starting signal generation process...');
-    
     // Check if we're in a browser environment
     if (typeof window === 'undefined') {
       throw new Error('Screenshot capture only works in browser environment');
     }
 
-    // === IMAGE CAPTURE SECTION ===
+    // Method 1: Try to use the browser's native screenshot API if available
     let base64Image;
-    let includeImage = false;
     
     try {
-      console.log('📸 Starting image capture process...');
-      
-      // Method 1: Try to use the browser's native screenshot API if available
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-          console.log('🖥️ Using native screen capture API...');
-          
-          const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              mediaSource: 'screen'
-            }
-          });
-
-          // Create video element to capture frame
-          const video = document.createElement('video');
-          video.srcObject = stream;
-          video.play();
-
-          // Wait for video to load
-          await new Promise((resolve) => {
-            video.onloadedmetadata = resolve;
-          });
-
-          // Create canvas and capture frame
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0);
-
-          // Stop the stream
-          stream.getTracks().forEach(track => track.stop());
-
-          // Convert to base64 with aggressive compression for ElizaOS
-          base64Image = compressImage(canvas, 0.3);
-          console.log('✅ Screen capture successful');
-          
-        } else {
-          throw new Error('Screen capture not supported');
-        }
-      } catch (screenCaptureError) {
-        console.warn('⚠️ Screen capture failed, trying alternative method:', screenCaptureError);
-        
-        // Method 2: Alternative approach using html2canvas
-        const chartContainer = container?.current;
-        if (!chartContainer) {
-          throw new Error('Chart container not found');
-        }
-
-        console.log('📄 Using html2canvas fallback...');
-        
-        const html2canvas = (await import('html2canvas')).default;
-        
-        // Try to capture with settings optimized for ElizaOS (very small file size)
-        const canvas = await html2canvas(document.body, {
-          useCORS: true,
-          allowTaint: true,
-          scale: 0.3, // Very small scale for ElizaOS limits
-          logging: false,
-          backgroundColor: '#1a1a1a',
-          foreignObjectRendering: false,
-          removeContainer: false,
-          imageTimeout: 15000,
-          width: 600, // Smaller limit for ElizaOS
-          height: 400, // Smaller limit for ElizaOS
-          onclone: (clonedDoc) => {
-            // Remove any elements that might cause issues
-            const iframes = clonedDoc.querySelectorAll('iframe');
-            iframes.forEach(iframe => {
-              const placeholder = clonedDoc.createElement('div');
-              placeholder.style.width = iframe.offsetWidth + 'px';
-              placeholder.style.height = iframe.offsetHeight + 'px';
-              placeholder.style.backgroundColor = '#2d3748';
-              placeholder.style.display = 'flex';
-              placeholder.style.alignItems = 'center';
-              placeholder.style.justifyContent = 'center';
-              placeholder.style.color = 'white';
-              placeholder.style.fontSize = '16px';
-              placeholder.textContent = 'TradingView Chart';
-              iframe.parentNode.replaceChild(placeholder, iframe);
-            });
+      // Use getDisplayMedia to capture screen
+      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            mediaSource: 'screen'
           }
         });
 
-        // Convert canvas to base64 with aggressive compression for ElizaOS  
-        base64Image = compressImage(canvas, 0.3);
-        console.log('✅ html2canvas capture successful');
-      }
+        // Create video element to capture frame
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
 
-      // Validate that we have a proper image and compress if needed
-      if (!base64Image || base64Image.length < 1000) {
-        throw new Error('Failed to capture a valid chart image');
-      }
-      
-      // Check image size and compress EXTREMELY aggressively for ElizaOS
-      const imageSizeKB = (base64Image.length * 3) / 4 / 1024;
-      console.log(`📊 Initial image size: ${imageSizeKB.toFixed(2)} KB`);
-      
-      if (imageSizeKB > 50) { // Very aggressive - target under 50KB for ElizaOS Express limits
-        console.log('🗜️ Image too large for ElizaOS Express body-parser, compressing extremely...');
-        
-        // Create a temporary canvas to compress the image much more
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        // Create image from base64
-        const img = new Image();
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-          img.src = `data:image/jpeg;base64,${base64Image}`;
+        // Wait for video to load
+        await new Promise((resolve) => {
+          video.onloadedmetadata = resolve;
         });
-        
-        // Very aggressively reduce dimensions for ElizaOS Express
-        const maxDimension = 300;
-        let { width, height } = img;
-        
-        if (width > maxDimension || height > maxDimension) {
-          const scale = Math.min(maxDimension / width, maxDimension / height);
-          width = Math.floor(width * scale);
-          height = Math.floor(height * scale);
-        }
-        
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        tempCtx.drawImage(img, 0, 0, width, height);
-        
-        // Extremely aggressive compression for ElizaOS Express
-        base64Image = tempCanvas.toDataURL('image/jpeg', 0.1).split(',')[1]; // 10% quality
-        
-        const newSizeKB = (base64Image.length * 3) / 4 / 1024;
-        console.log(`🗜️ Extremely compressed image size: ${newSizeKB.toFixed(2)} KB`);
-        
-        // If still too large, try even more extreme compression
-        if (newSizeKB > 30) {
-          console.log('🔥 Still too large, maximum compression...');
-          
-          // Even smaller dimensions
-          const ultraMaxDimension = 200;
-          if (width > ultraMaxDimension || height > ultraMaxDimension) {
-            const ultraScale = Math.min(ultraMaxDimension / width, ultraMaxDimension / height);
-            width = Math.floor(width * ultraScale);
-            height = Math.floor(height * ultraScale);
-            
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            tempCtx.drawImage(img, 0, 0, width, height);
-          }
-          
-          base64Image = tempCanvas.toDataURL('image/jpeg', 0.05).split(',')[1]; // 5% quality
-          const ultraSizeKB = (base64Image.length * 3) / 4 / 1024;
-          console.log(`🔥 Maximum compressed image size: ${ultraSizeKB.toFixed(2)} KB`);
-        }
-      }
-      
-      // Final size check - if still too large, we'll send without image
-      const finalSizeKB = (base64Image.length * 3) / 4 / 1024;
-      const estimatedPayloadKB = finalSizeKB + 5; // Add some overhead for JSON
-      
-      console.log(`📈 Final image size: ${finalSizeKB.toFixed(2)} KB, estimated payload: ${estimatedPayloadKB.toFixed(2)} KB`);
-      
-      // If payload is still likely too large for Express (>800KB), send without image
-      includeImage = estimatedPayloadKB < 800;
-      
-      if (!includeImage) {
-        console.log('⚠️ Image still too large for ElizaOS Express limits, will send text-only analysis request');
+
+        // Create canvas and capture frame
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        // Stop the stream
+        stream.getTracks().forEach(track => track.stop());
+
+        // Convert to base64
+        base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
       } else {
-        console.log('✅ Image size acceptable for ElizaOS transmission');
+        throw new Error('Screen capture not supported');
       }
+    } catch (screenCaptureError) {
+      console.warn('Screen capture failed, trying alternative method:', screenCaptureError);
       
-    } catch (imageError) {
-      console.warn('📸 Image capture failed:', imageError);
-      includeImage = false;
+      // Method 2: Alternative approach using html2canvas with better configuration
+      const chartContainer = container.current;
+      if (!chartContainer) {
+        throw new Error('Chart container not found');
+      }
+
+      // Wait a bit for the chart to fully load
+     // await new Promise(resolve => setTimeout(resolve, 2000));
+     
+      const html2canvas = (await import('html2canvas')).default;
+      
+      // Try to capture with different settings
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 0.5,
+        logging: true,
+        backgroundColor: '#1a1a1a',
+        foreignObjectRendering: false,
+        removeContainer: false,
+        imageTimeout: 30000,
+        onclone: (clonedDoc) => {
+          // Remove any elements that might cause issues
+          const iframes = clonedDoc.querySelectorAll('iframe');
+          iframes.forEach(iframe => {
+            const placeholder = clonedDoc.createElement('div');
+            placeholder.style.width = iframe.offsetWidth + 'px';
+            placeholder.style.height = iframe.offsetHeight + 'px';
+            placeholder.style.backgroundColor = '#2d3748';
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.color = 'white';
+            placeholder.style.fontSize = '16px';
+            placeholder.textContent = 'TradingView Chart';
+            iframe.parentNode.replaceChild(placeholder, iframe);
+          });
+        }
+      });
+
+      // Convert canvas to base64
+      base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
     }
-    
-    // Reset signals before generating new one
-    setSignals([]);
 
-    // === ELIZA AGENT INTEGRATION ===
-    console.log('🤖 Starting ElizaOS agent integration...');
-    
-    // Use single API endpoint
-    const elizaApiUrl = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'http://localhost:3000';
-    const endpoint = `${elizaApiUrl}/api/messaging/central-channels/f2d40929-878c-4494-8c21-d7609acea4e7/messages`;
+    // Validate that we have a proper image
+    if (!base64Image || base64Image.length < 1000) {
+      throw new Error('Failed to capture a valid chart image');
+    }
+     setSignals([])
+    const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-    // Prepare message
-    const analysisMessage = includeImage ? 
-      (selectedAnalysis === "trend" ? 
-        "Analyze this trading chart for trend patterns including EMA crossovers, support/resistance bounces, and Bollinger Band squeezes. Please provide a detailed technical analysis with specific price targets and risk management recommendations." :
-        "Perform comprehensive technical analysis on this trading chart. Identify patterns, support/resistance levels, and provide detailed trading recommendations with price targets.") :
-      `Perform ${selectedAnalysis === "trend" ? 'trend-focused' : 'general'} technical analysis. I was unable to send the chart image due to size constraints, but please provide a template analysis showing what information you would typically extract from trading charts, including asset identification, pattern recognition, price targets, and trading recommendations.`;
-const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: selectedAnalysis === "trend" ? 
+                "You are a professional trading chart analyzer. Examine this trading chart image carefully. Your primary goal is to identify if one of the following specific trading strategies is clearly present and actionable:\n\n1. **EMA Crossover:** (e.g., a shorter-period EMA like 9 or 20 crossing a longer-period EMA like 21 or 50). Note the EMAs involved if identifiable from the chart's indicators.\n2. **Support/Resistance Bounce with Candlestick Confirmation:** (e.g., price testing a clear horizontal support or resistance level and forming a distinct reversal candlestick pattern like a Pin Bar, Engulfing, Hammer, or Shooting Star). Note the S/R level and the candlestick pattern.\n3. **Bollinger Band Squeeze Breakout:** (Bollinger Bands narrow significantly, indicating a \"squeeze,\" then price breaks out decisively above the upper band or below the lower band).\n\nIf one of these three strategies is identified, populate the JSON accordingly. If multiple seem to apply, choose the most dominant or clearest one.\n\nRespond ONLY with a valid JSON object containing these fields:\n`{ \"assetName\": \"Name or ticker symbol of the asset shown\", \"assetType\": \"Stock, Crypto, Forex, or Commodity\", \"patternName\": \"One of: 'EMA Crossover', 'Support/Resistance Bounce with Candlestick Confirmation', 'Bollinger Band Squeeze Breakout', or if none of these are clearly present, 'None of the specified strategies identified'\", \"sentiment\": \"Bullish or Bearish (based on the identified strategy's typical implication)\", \"confidence\": 85, \"description\": \"Brief description of how the identified strategy is manifesting on the chart. If 'None of the specified strategies identified', explain why or what else is observed.\", \"recommendation\": \"Buy, Sell, Hold, or Unknown (based on the strategy's signal)\", \"recommendationReason\": \"Brief explanation for the recommendation tied directly to the rules/logic of the identified strategy (e.g., 'Fast EMA crossed above Slow EMA', 'Bullish pin bar at support', 'Breakout above Bollinger Band after squeeze').\", \"priceTargets\": { \"resistance\": 175.50, \"support\": 142.30, \"target\": 185.00, \"entry\": 150.25, \"exit\": 182.75, \"stopLoss\": 145.50 }, \"riskReward\": 2.5, \"timestamp\": \"2025-05-10T14:30:00Z\", \"indicators\": [ { \"name\": \"RSI\", \"value\": \"65\", \"interpretation\": \"Bullish momentum building\" } ] }`\nFor the \"priceTargets\" sub-object, resistance is a general key resistance level visible on the chart, or next logical target for a long position based on the strategy; support is a general key support level visible on the chart, or next logical target for a short position based on the strategy; target is a specific price target based on the strategy's typical expectation (e.g., next S/R, measured move, or fixed R:R); entry is the recommended entry point according to the identified strategy's rules (e.g., close of breakout candle, open of next candle after confirmation); exit is the recommended take profit point for the strategy; and stopLoss is the stop loss level according to the identified strategy's rules (e.g., below swing low/EMA for crossover, beyond S/R or candle extreme for bounce, other side of squeeze for BB breakout).\nFor the \"riskReward\" field, it should be the calculated Risk-reward ratio: (exit - entry) / (entry - stopLoss) for long, or (entry - exit) / (stopLoss - entry) for short. If not calculable, set to null or 0.\nFor the \"indicators\" array, list indicators that are *key* to the identified strategy. For example, for EMA Crossover: `[ { \"name\": \"Fast EMA\", \"value\": \"e.g., 20-period\", \"interpretation\": \"Crossed above Slow EMA indicating bullish momentum\" }, { \"name\": \"Slow EMA\", \"value\": \"e.g., 50-period\", \"interpretation\": \"Currently below Fast EMA\" } ]`. For S/R Bounce: `[ { \"name\": \"Support Level\", \"value\": \"e.g., 1.1200\", \"interpretation\": \"Price tested and bounced from this level\" }, { \"name\": \"Candlestick Pattern\", \"value\": \"e.g., Bullish Pin Bar\", \"interpretation\": \"Indicates buying pressure at support\" } ]`. For Bollinger Band Squeeze Breakout: `[ { \"name\": \"Bollinger Bands\", \"value\": \"e.g., (20, 2)\", \"interpretation\": \"Squeeze identified, price broke above upper band\" } ]`. If 'None of the specified strategies identified', list any visible standard indicators and their readings.\n\nIf the chart is unclear, you cannot confidently identify the asset, or none of the three specified strategies are clearly present, still return a complete JSON. In such cases, set `patternName` to \"None of the specified strategies identified\" or \"Unknown\" if even that is unclear. Set other unidentifiable or inapplicable fields to \"Unknown\", null, or reasonable defaults (e.g., confidence low, recommendation \"Hold\" or \"Unknown\"). Include any uncertainty in the `description` field.\n\nThe response must be ONLY the JSON object with no additional text."
+                :
+                "You are a professional trading chart analyzer. Examine this trading chart image carefully and identify the asset/stock/cryptocurrency being displayed and any technical patterns present. Respond ONLY with a valid JSON object containing these fields:\n\n{\n  \"assetName\": \"Name or ticker symbol of the asset shown\",\n  \"assetType\": \"Stock, Crypto, Forex, or Commodity\",\n  \"patternName\": \"Name of the pattern you identified\",\n  \"sentiment\": \"Bullish or Bearish\",\n  \"confidence\": 85, // Confidence percentage (number between 1-100)\n  \"description\": \"Brief description of what this pattern indicates\",\n  \"recommendation\": \"Buy\", // Must be one of: Buy, Sell, Hold, or Unknown\n  \"recommendationReason\": \"Brief explanation for the buy/sell/hold recommendation\",\n  \"priceTargets\": {\n    \"resistance\": 175.50, // Key resistance level\n    \"support\": 142.30, // Key support level\n    \"target\": 185.00, // Price target based on the pattern\n    \"entry\": 150.25, // Recommended entry point\n    \"exit\": 182.75, // Recommended exit point\n    \"stopLoss\": 145.50 // Stop loss level to minimize risk\n  },\n  \"riskReward\": 2.5, // Risk-reward ratio (potential profit / potential loss)\n  \"timestamp\": \"2025-05-10T14:30:00Z\", // Current time when analysis was performed\n  \"indicators\": [\n    {\n      \"name\": \"RSI\",\n      \"value\": \"65\",\n      \"interpretation\": \"Bullish momentum building\"\n    },\n    {\n      \"name\": \"MACD\",\n      \"value\": \"Positive crossover\",\n      \"interpretation\": \"Confirming uptrend\"\n    }\n  ]\n}\n\nIf the chart is unclear or you cannot confidently identify the asset or pattern, still return a complete JSON but set the unidentifiable fields (like assetName) to \"Unknown\" and include the uncertainty in the description field. The response must be ONLY the JSON object with no additional text."
+            },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Image
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 8192,
+      }
+    };
 
-  const requestBody = {
-  channelId: "f2d40929-878c-4494-8c21-d7609acea4e7", // Your actual channel ID
-  server_id: "00000000-0000-0000-0000-000000000000",
-  author_id: `a9308c87-8a1c-4d75-aff6-d5a390b467cb`, // Changed from senderId
-  content: analysisMessage, // Changed from text
-  source_type: "eliza_gui", // Changed from source
-
-  metadata: {
-    user_display_name: "Chart Analyst"
-  },
-  
-    attachments: [{
-      type: "image",
-      contentType: "image/jpeg", 
-      data: cleanBase64,
-      name: `trading_chart_${Date.now()}.jpg`
-    }]
-  
-};
-   console.log(`Include image:${includeImage}`)
-    console.log(`🌐 Calling endpoint: ${endpoint}`);
-    
-    // Calculate payload size
-    const payloadString = JSON.stringify(requestBody);
-    const payloadSizeKB = new Blob([payloadString]).size / 1024;
-    console.log(`📦 Payload size: ${payloadSizeKB.toFixed(2)} KB`);
-    
-    const response = await fetch(endpoint, {
+    const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        // Add auth if needed
-        // 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ELIZA_API_KEY}`,
       },
-      body: payloadString,
+      body: JSON.stringify(requestBody),
     });
 
-    console.log(`📊 Response: ${response.status} ${response.statusText}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API call failed: ${response.status} - ${errorText}`);
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      throw new Error(`Gemini API error: ${geminiResponse.status} - ${errorText}`);
     }
 
-    const responseData = await response.json();
-    console.log('✅ SUCCESS! Received response from ElizaOS:', {
-      responseKeys: Object.keys(responseData),
-      hasText: !!(responseData.text || responseData.content?.text || responseData.message)
-    });
-
-    console.log("🎯 Raw ElizaOS Agent Response:", JSON.stringify(responseData, null, 2));
+    const geminiData = await geminiResponse.json();
+    console.log("Raw Gemini API Response:", JSON.stringify(geminiData, null, 2));
     
-    // Enhanced response parsing to handle different ElizaOS response formats
-    let responseText = '';
-    let elizaData = responseData;
+    // Extract text from Gemini response
+    let fullText = '';
     
-    console.log('🔍 Starting response parsing...');
-    
-    // Handle different possible response structures
-    if (typeof elizaData === 'string') {
-      responseText = elizaData;
-      console.log('📝 Response is direct string');
-    } else if (elizaData.response) {
-      responseText = elizaData.response;
-      console.log('📝 Found response in .response field');
-    } else if (elizaData.content?.text) {
-      responseText = elizaData.content.text;
-      console.log('📝 Found response in .content.text field');
-    } else if (elizaData.text) {
-      responseText = elizaData.text;
-      console.log('📝 Found response in .text field');
-    } else if (elizaData.message) {
-      responseText = elizaData.message;
-      console.log('📝 Found response in .message field');
-    } else if (elizaData.messages && Array.isArray(elizaData.messages)) {
-      // Handle array of messages
-      const lastMessage = elizaData.messages[elizaData.messages.length - 1];
-      responseText = lastMessage.content?.text || lastMessage.text || lastMessage.message;
-      console.log('📝 Found response in messages array');
-    } else if (Array.isArray(elizaData)) {
-      // Handle direct array response
-      const lastItem = elizaData[elizaData.length - 1];
-      responseText = lastItem.content?.text || lastItem.text || lastItem.message;
-      console.log('📝 Found response in direct array');
-    } else {
-      // Try to find any text content in the response
-      console.log('🔍 Searching for text content in complex response structure...');
-      
-      const findText = (obj, path = '') => {
-        if (typeof obj === 'string') {
-          console.log(`📝 Found string at path: ${path}`);
-          return obj;
-        }
-        if (typeof obj !== 'object' || obj === null) return null;
-        
-        // First, look for common text field names
-        for (const [key, value] of Object.entries(obj)) {
-          if (key.includes('text') || key.includes('content') || key.includes('message') || key.includes('response')) {
-            if (typeof value === 'string') {
-              console.log(`📝 Found text in field: ${path}.${key}`);
-              return value;
-            }
-            if (typeof value === 'object') {
-              const found = findText(value, `${path}.${key}`);
-              if (found) return found;
-            }
+    if (geminiData.candidates && geminiData.candidates.length > 0) {
+      const candidate = geminiData.candidates[0];
+      if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            fullText += part.text;
           }
         }
-        
-        // Recursively search through all values
-        for (const [key, value] of Object.entries(obj)) {
-          if (typeof value === 'object') {
-            const found = findText(value, `${path}.${key}`);
-            if (found) return found;
-          }
-        }
-        
-        return null;
-      };
+      }
+    }
+    
+    if (!fullText) {
+      throw new Error('No response received from Gemini API');
+    }
+
+    console.log("Extracted text from Gemini:", fullText);
+
+    // Parse the JSON response from Gemini
+    let parsedSignal;
+    try {
+      // Clean the response text (remove any markdown formatting or extra text)
+      const cleanedText = fullText.replace(/```json\n?|\n?```/g, '').trim();
       
-      responseText = findText(elizaData) || JSON.stringify(elizaData);
-      console.log('📝 Complex search completed');
+      // Find JSON object in the response
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON object found in Gemini response');
+      }
+      
+      parsedSignal = JSON.parse(jsonMatch[0]);
+      
+      // Validate required fields
+      if (!parsedSignal.assetName || !parsedSignal.patternName) {
+        throw new Error('Invalid signal data received from Gemini');
+      }
+      
+      // Ensure timestamp is current
+      parsedSignal.timestamp = new Date().toISOString();
+      
+      // Validate and fix price targets if needed
+      if (parsedSignal.priceTargets) {
+        Object.keys(parsedSignal.priceTargets).forEach(key => {
+          if (typeof parsedSignal.priceTargets[key] === 'string') {
+            parsedSignal.priceTargets[key] = parseFloat(parsedSignal.priceTargets[key]) || 0;
+          }
+        });
+      }
+      
+      // Ensure confidence is a number
+      if (typeof parsedSignal.confidence === 'string') {
+        parsedSignal.confidence = parseInt(parsedSignal.confidence) || 0;
+      }
+      
+      // Ensure riskReward is a number
+      if (typeof parsedSignal.riskReward === 'string') {
+        parsedSignal.riskReward = parseFloat(parsedSignal.riskReward) || 0;
+      }
+      
+    } catch (parseError) {
+      console.error('Error parsing Gemini response:', parseError);
+      console.error('Raw response:', fullText);
+      throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
     }
-    
-    if (!responseText) {
-      throw new Error('No response text found in ElizaOS agent response');
-    }
-
-    console.log("📝 Extracted text from ElizaOS (first 500 chars):", responseText.substring(0, 500));
-
-    // Enhanced signal parsing
-    console.log('🔄 Starting signal parsing...');
-    let parsedSignal = parseElizaResponse(responseText, selectedAnalysis);
-    
-    console.log('✅ Parsed signal:', {
-      assetName: parsedSignal.assetName,
-      sentiment: parsedSignal.sentiment,
-      confidence: parsedSignal.confidence,
-      recommendation: parsedSignal.recommendation
-    });
-    
+console.log(parsedSignal)
     // Set the parsed signal
     setSignals([parsedSignal]);
     setIsGenerating(false);
     
-    console.log('🎉 Signal generation completed successfully!');
-    
   } catch (error) {
-    console.error('💥 Error generating signal:', error);
+    console.error('Error generating signal:', error);
     setIsGenerating(false);
     
-    // Enhanced error reporting with debugging information
-    const debugInfo = {
-      timestamp: new Date().toISOString(),
-      elizaUrl: process.env.NEXT_PUBLIC_ELIZA_API_URL || 'http://localhost:3000',
-      analysisType: selectedAnalysis,
-      includeImage: includeImage,
-      errorMessage: error.message,
-      errorStack: error.stack,
-      userAgent: navigator.userAgent,
-      windowLocation: window.location.href
-    };
+    // Show error to user
+    alert(`Error generating signal: ${error.message}`);
     
-    console.error('🐛 Full debugging information:', debugInfo);
-    
-    const errorMessage = `Error generating signal: ${error.message}
 
-🐛 Debug Information:
-- ElizaOS URL: ${debugInfo.elizaUrl}
-- Analysis type: ${debugInfo.analysisType}
-- Include image: ${debugInfo.includeImage}
-- Timestamp: ${debugInfo.timestamp}
-- User Agent: ${debugInfo.userAgent.substring(0, 50)}...
-
-Check browser console for detailed logs.`;
-    
-    alert(errorMessage);
-    
-    // Optionally create a fallback signal with error information
-    const errorSignal = {
-      assetName: "Error in Analysis", 
-      assetType: "Unknown",
-      patternName: "Error Pattern",
-      sentiment: "Unknown",
-      confidence: 0,
-      description: `Error occurred during signal generation: ${error.message}`,
-      recommendation: "Unknown",
-      recommendationReason: "Analysis failed due to technical error",
-      priceTargets: {
-        resistance: null,
-        support: null,
-        target: null,
-        entry: null,
-        exit: null,
-        stopLoss: null
-      },
-      riskReward: null,
-      timestamp: new Date().toISOString(),
-      indicators: [
-        {
-          name: "System Status",
-          value: "Error",
-          interpretation: error.message
-        }
-      ]
-    };
-    
-    setSignals([errorSignal]);
   }
 };
-
   const saveAnalysis = async () => {
     if (signals.length === 0) return;
     
@@ -741,120 +378,6 @@ Check browser console for detailed logs.`;
       setIsTrading(false);
     }
   };
-
-
-
-
-
-
-
-
-
-
-function extractSentiment(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('bullish') || lower.includes('buy') || lower.includes('long')) return 'Bullish';
-  if (lower.includes('bearish') || lower.includes('sell') || lower.includes('short')) return 'Bearish';
-  return 'Neutral';
-}
-
-function extractConfidence(text) {
-  const match = text.match(/confidence[:\s]+(\d+)/i);
-  return match ? parseInt(match[1]) : 75;
-}
-
-function extractRecommendation(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('buy') || lower.includes('long')) return 'Buy';
-  if (lower.includes('sell') || lower.includes('short')) return 'Sell';
-  return 'Hold';
-}
-
-function extractRecommendationReason(text) {
-  // Look for sentences containing recommendation logic
-  const sentences = text.split(/[.!?]/);
-  for (const sentence of sentences) {
-    if (sentence.toLowerCase().includes('because') || 
-        sentence.toLowerCase().includes('due to') ||
-        sentence.toLowerCase().includes('reason')) {
-      return sentence.trim();
-    }
-  }
-  return "Based on technical analysis";
-}
-
-function extractPriceTargets(text) {
-  // Extract price levels from text
-  const pricePattern = /\$?(\d+\.?\d*)/g;
-  const prices = [];
-  let match;
-  
-  while ((match = pricePattern.exec(text)) !== null) {
-    const price = parseFloat(match[1]);
-    if (price > 0) prices.push(price);
-  }
-  
-  // Assign prices to targets (this is a simple heuristic)
-  return {
-    resistance: prices[0] || null,
-    support: prices[1] || null,
-    target: prices[2] || null,
-    entry: prices[3] || null,
-    exit: prices[4] || null,
-    stopLoss: prices[5] || null
-  };
-}
-
-function extractRiskReward(text) {
-  const match = text.match(/risk[\/\s]*reward[:\s]*(\d+\.?\d*)/i);
-  return match ? parseFloat(match[1]) : null;
-}
-
-function extractIndicators(text) {
-  const indicators = [];
-  const commonIndicators = ['RSI', 'MACD', 'EMA', 'SMA', 'Bollinger Bands', 'Volume'];
-  
-  for (const indicator of commonIndicators) {
-    if (text.toLowerCase().includes(indicator.toLowerCase())) {
-      indicators.push({
-        name: indicator,
-        value: "Detected",
-        interpretation: `${indicator} mentioned in analysis`
-      });
-    }
-  }
-  
-  if (indicators.length === 0) {
-    indicators.push({
-      name: "Technical Analysis",
-      value: "Complete",
-      interpretation: "Chart analyzed by ElizaOS agent"
-    });
-  }
-  
-  return indicators;
-}
-
-// Helper function to parse text response into structured signal
-function parseTextResponseToSignal(responseText, analysisType) {
-  // Extract key information from the text response
-  const signal = {
-    assetName: extractAssetName(responseText) || "Chart Analysis",
-    assetType: extractAssetType(responseText) || "Unknown",
-    patternName: extractPatternName(responseText, analysisType),
-    sentiment: extractSentiment(responseText) || "Neutral",
-    confidence: extractConfidence(responseText) || 75,
-    description: responseText.substring(0, 300) + (responseText.length > 300 ? '...' : ''),
-    recommendation: extractRecommendation(responseText) || "Hold",
-    recommendationReason: extractRecommendationReason(responseText) || "Based on ElizaOS agent analysis",
-    priceTargets: extractPriceTargets(responseText),
-    riskReward: extractRiskReward(responseText),
-    timestamp: new Date().toISOString(),
-    indicators: extractIndicators(responseText)
-  };
-  
-  return signal;
-}
 
   useEffect(() => {
     const script = document.createElement("script");
