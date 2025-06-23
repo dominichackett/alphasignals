@@ -70,72 +70,91 @@ export const useWeb3AuthSupabase = (): Web3AuthSupabaseUser & {
   console.log('Should be authenticated:', shouldBeAuthenticated)
   console.log('===================================')
 
-  const signInWithSupabase = useCallback(async () => {
-    console.log('signInWithSupabase called', { isConnected, web3AuthUser: !!web3AuthUser, web3Auth: !!web3Auth, status })
-    
-    // More robust checks
-    if (!isConnected || !web3AuthUser || !web3Auth) {
-      const errorMsg = `Web3Auth not ready: connected=${isConnected}, user=${!!web3AuthUser}, instance=${!!web3Auth}, status=${status}`
-      console.error(errorMsg)
-      setError(errorMsg)
-      return
-    }
+ // Add this debugging to your signInWithSupabase function
+const signInWithSupabase = useCallback(async () => {
+  console.log('=== signInWithSupabase DEBUG ===')
+  console.log('signInWithSupabase called', { isConnected, web3AuthUser: !!web3AuthUser, web3Auth: !!web3Auth, status })
+  
+  if (!isConnected || !web3AuthUser || !web3Auth) {
+    const errorMsg = `Web3Auth not ready: connected=${isConnected}, user=${!!web3AuthUser}, instance=${!!web3Auth}, status=${status}`
+    console.error(errorMsg)
+    setError(errorMsg)
+    return
+  }
 
-    try {
-      setLoading(true)
-      setError(null)
-      console.log('Starting Supabase authentication...')
+  try {
+    setLoading(true)
+    setError(null)
+    console.log('Starting Supabase authentication...')
 
-      // Use web3AuthUser instead of userInfo
-      const userEmail = web3AuthUser.email || `${web3AuthUser.sub}@web3auth.io`
-      const userPassword = web3AuthUser.sub || 'web3auth-user'
+    const userEmail = web3AuthUser.email || `${web3AuthUser.sub}@web3auth.io`
+    const userPassword = web3AuthUser.sub || 'web3auth-user'
 
-      console.log('Signing in to Supabase...')
-      // Alternative: Sign in with email (simpler approach)
-      const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
+    console.log('Attempting sign in with:', { email: userEmail, hasPassword: !!userPassword })
+
+    // Try to sign in
+    const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: userPassword,
+    })
+
+    console.log('Sign in result:', { 
+      user: !!data?.user, 
+      session: !!data?.session, 
+      error: supabaseError?.message 
+    })
+
+    // If sign in fails, try to sign up
+    if (supabaseError && supabaseError.message.includes('Invalid login credentials')) {
+      console.log('User not found, creating account...')
+      
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: userEmail,
         password: userPassword,
-      })
-
-      // If sign in fails, try to sign up first
-      if (supabaseError && supabaseError.message.includes('Invalid login credentials')) {
-        console.log('User not found, creating account...')
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: web3AuthUser.email || `${web3AuthUser.sub}@web3auth.io`,
-          password: web3AuthUser.sub || 'web3auth-user',
-          options: {
-            data: {
-              name: web3AuthUser.name,
-              picture: web3AuthUser.profileImage,
-              web3auth_sub: web3AuthUser.sub,
-              provider: web3AuthUser.typeOfLogin,
-            }
+        options: {
+          data: {
+            name: web3AuthUser.name,
+            picture: web3AuthUser.profileImage,
+            web3auth_sub: web3AuthUser.sub,
+            provider: web3AuthUser.typeOfLogin,
           }
-        })
-        
-        if (signUpError) {
-          throw new Error(`Failed to create Supabase user: ${signUpError.message}`)
         }
-        
-        console.log('Supabase user created and signed in:', !!signUpData.user)
-        setSupabaseUser(signUpData.user)
-      } else if (supabaseError) {
-        throw supabaseError
-      } else {
-        console.log('Supabase authentication successful:', !!data.user)
-        setSupabaseUser(data.user)
+      })
+      
+      console.log('Sign up result:', { 
+        user: !!signUpData?.user, 
+        session: !!signUpData?.session, 
+        error: signUpError?.message 
+      })
+      
+      if (signUpError) {
+        throw new Error(`Failed to create Supabase user: ${signUpError.message}`)
       }
-      setHasAttemptedAuth(true)
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Authentication failed'
-      console.error('Web3Auth + Supabase integration error:', err)
-      setError(errorMsg)
-      setHasAttemptedAuth(true)
-    } finally {
-      setLoading(false)
+      
+      console.log('Setting supabase user from signup:', !!signUpData.user)
+      setSupabaseUser(signUpData.user)
+    } else if (supabaseError) {
+      throw supabaseError
+    } else {
+      console.log('Setting supabase user from signin:', !!data.user)
+      setSupabaseUser(data.user)
     }
-  }, [web3Auth, web3AuthUser, isConnected, status])
 
+    // IMPORTANT: Check if session was actually created
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    console.log('Current session after auth:', !!currentSession)
+    
+    setHasAttemptedAuth(true)
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Authentication failed'
+    console.error('Web3Auth + Supabase integration error:', err)
+    setError(errorMsg)
+    setHasAttemptedAuth(true)
+  } finally {
+    setLoading(false)
+    console.log('=== signInWithSupabase END ===')
+  }
+}, [web3Auth, web3AuthUser, isConnected, status])
   const signOut = useCallback(async () => {
     try {
       setLoading(true)

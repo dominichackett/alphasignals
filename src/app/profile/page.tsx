@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Settings, 
@@ -29,56 +29,38 @@ import {
   EyeOff,
   Copy,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Loader
 } from 'lucide-react';
 import Header from '@/components/Header/Header';
+import { useProfile } from '../../hooks/userProfile';
+import { useAuth } from '@/contexts/AuthContext';
 
 const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editForm, setEditForm] = useState({});
   const [userStats, setUserStats] = useState({});
-  const [userData, setUserData] = useState({
-    id: 'user_1704567890123',
-    name: 'Sarah Chen',
-    username: 'sarahc_trader',
-    email: 'sarah.chen@email.com',
-    phone: '+1 (555) 123-4567',
-    location: 'New York, NY',
-    bio: 'Professional trader with 8+ years of experience in equity and crypto markets. Focus on technical analysis and risk management.',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b5bb?w=300&h=300&fit=crop&crop=face',
-    joinedAt: '2022-03-15T08:30:00.000Z',
-    verified: true,
-    tier: 'Premium',
-    referralCode: 'SC7X9M2K',
-    preferences: {
-      notifications: {
-        email: true,
-        push: true,
-        sms: false,
-        tradeAlerts: true,
-        marketNews: true,
-        weeklyReports: true
-      },
-      privacy: {
-        profileVisible: true,
-        tradesVisible: false,
-        followersVisible: true,
-        portfolioVisible: false
-      },
-      trading: {
-        riskLevel: 'moderate',
-        autoFollow: false,
-        maxPositionSize: 10000,
-        currency: 'USD',
-        timezone: 'America/New_York'
-      }
-    }
-  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { isAuthenticated } = useAuth();
+  const {
+    profile,
+    loading,
+    error,
+    uploadingAvatar,
+    updateProfile,
+    uploadAvatar,
+    updateNotificationPreferences,
+    updatePrivacySettings,
+    setError
+  } = useProfile();
 
   useEffect(() => {
-    // Mock trading stats
+    // Mock trading stats - in real app, fetch from API
     setUserStats({
       totalTrades: 324,
       winRate: 67.8,
@@ -97,13 +79,65 @@ const UserProfile = () => {
     });
   }, []);
 
+  useEffect(() => {
+    if (profile && isEditing) {
+      setEditForm({
+        name: profile.name,
+        username: profile.username,
+        phone: profile.phone || '',
+        location: profile.location || '',
+        bio: profile.bio || ''
+      });
+    }
+  }, [profile, isEditing]);
+
+  // Handler functions
   const handleCopyReferral = () => {
-    navigator.clipboard.writeText(userData.referralCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (profile?.referral_code) {
+      navigator.clipboard.writeText(profile.referral_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const formatCurrency = (amount) => {
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const success = await uploadAvatar(file);
+      if (success) {
+        // Avatar updated successfully
+      }
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    const success = await updateProfile(editForm);
+    if (success) {
+      setIsEditing(false);
+      setEditForm({});
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({});
+    setError(null);
+  };
+
+  const handleNotificationChange = async (key: string, value: boolean) => {
+    await updateNotificationPreferences({ [key]: value });
+  };
+
+  const handlePrivacyChange = async (key: string, value: boolean) => {
+    await updatePrivacySettings({ [key]: value });
+  };
+
+  // Utility functions
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -111,7 +145,7 @@ const UserProfile = () => {
     }).format(amount);
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -132,25 +166,85 @@ const UserProfile = () => {
       {label}
     </button>
   );
+  // Loading and error states
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white flex items-center justify-center">
+        <Header />
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Please sign in to view your profile</h1>
+          <p className="text-gray-400">You need to be authenticated to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white flex items-center justify-center">
+        <Header />
+        <div className="text-center">
+          <Loader className="animate-spin w-8 h-8 mx-auto mb-4" />
+          <p className="text-gray-400">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white flex items-center justify-center">
+        <Header />
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-4 text-red-400" />
+          <h1 className="text-2xl font-bold mb-4">Profile not found</h1>
+          <p className="text-gray-400">Unable to load your profile data.</p>
+          {error && <p className="text-red-400 mt-2">{error}</p>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white">
+      <Header />
       <div className="p-6 pt-24 max-w-7xl mx-auto">
+        
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          </div>
+        )}
+
         {/* Profile Header */}
-        <Header/>
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-8 mb-8">
           <div className="flex flex-col md:flex-row items-start gap-8">
             {/* Avatar Section */}
             <div className="relative">
               <img
-                src={userData.avatar}
-                alt={userData.name}
+                src={profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=128&background=6366f1&color=ffffff`}
+                alt={profile.name}
                 className="w-32 h-32 rounded-full object-cover ring-4 ring-blue-500/50 shadow-xl"
               />
-              <button className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors duration-200">
-                <Camera size={16} />
+              <button 
+                onClick={handleAvatarClick}
+                disabled={uploadingAvatar}
+                className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors duration-200 disabled:opacity-50"
+              >
+                {uploadingAvatar ? <Loader className="animate-spin" size={16} /> : <Camera size={16} />}
               </button>
-              {userData.verified && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
+              {profile.verified && (
                 <div className="absolute -top-2 -right-2 bg-green-500 text-white p-1.5 rounded-full">
                   <CheckCircle size={16} />
                 </div>
@@ -160,30 +254,34 @@ const UserProfile = () => {
             {/* User Info */}
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-4">
-                <h1 className="text-3xl font-bold text-white">{userData.name}</h1>
+                <h1 className="text-3xl font-bold text-white">{profile.name}</h1>
                 <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                  {userData.tier}
+                  {profile.tier}
                 </div>
               </div>
               
               <div className="flex items-center gap-6 text-gray-300 mb-4">
                 <span className="flex items-center gap-2">
                   <User size={16} />
-                  @{userData.username}
+                  @{profile.username}
                 </span>
-                <span className="flex items-center gap-2">
-                  <MapPin size={16} />
-                  {userData.location}
-                </span>
+                {profile.location && (
+                  <span className="flex items-center gap-2">
+                    <MapPin size={16} />
+                    {profile.location}
+                  </span>
+                )}
                 <span className="flex items-center gap-2">
                   <Calendar size={16} />
-                  Joined {formatDate(userData.joinedAt)}
+                  Joined {formatDate(profile.joined_at)}
                 </span>
               </div>
 
-              <p className="text-gray-300 mb-6 max-w-2xl leading-relaxed">
-                {userData.bio}
-              </p>
+              {profile.bio && (
+                <p className="text-gray-300 mb-6 max-w-2xl leading-relaxed">
+                  {profile.bio}
+                </p>
+              )}
 
               {/* Quick Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -262,7 +360,6 @@ const UserProfile = () => {
             onClick={setActiveTab} 
           />
         </div>
-
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -391,7 +488,6 @@ const UserProfile = () => {
             </div>
           </div>
         )}
-
         {activeTab === 'account' && (
           <div className="space-y-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6">
@@ -402,7 +498,8 @@ const UserProfile = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
                   <input
                     type="text"
-                    value={userData.name}
+                    value={isEditing ? editForm.name || '' : profile.name}
+                    onChange={(e) => isEditing && setEditForm({...editForm, name: e.target.value})}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                   />
@@ -412,7 +509,8 @@ const UserProfile = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
                   <input
                     type="text"
-                    value={userData.username}
+                    value={isEditing ? editForm.username || '' : profile.username}
+                    onChange={(e) => isEditing && setEditForm({...editForm, username: e.target.value})}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                   />
@@ -422,17 +520,19 @@ const UserProfile = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
                   <input
                     type="email"
-                    value={userData.email}
-                    disabled={!isEditing}
+                    value={profile.email}
+                    disabled={true}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Email cannot be changed</p>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
                   <input
                     type="tel"
-                    value={userData.phone}
+                    value={isEditing ? editForm.phone || '' : profile.phone || ''}
+                    onChange={(e) => isEditing && setEditForm({...editForm, phone: e.target.value})}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                   />
@@ -442,7 +542,8 @@ const UserProfile = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-2">Location</label>
                   <input
                     type="text"
-                    value={userData.location}
+                    value={isEditing ? editForm.location || '' : profile.location || ''}
+                    onChange={(e) => isEditing && setEditForm({...editForm, location: e.target.value})}
                     disabled={!isEditing}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                   />
@@ -451,7 +552,8 @@ const UserProfile = () => {
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-300 mb-2">Bio</label>
                   <textarea
-                    value={userData.bio}
+                    value={isEditing ? editForm.bio || '' : profile.bio || ''}
+                    onChange={(e) => isEditing && setEditForm({...editForm, bio: e.target.value})}
                     disabled={!isEditing}
                     rows={4}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none disabled:opacity-50 resize-none"
@@ -464,7 +566,7 @@ const UserProfile = () => {
                 <h3 className="text-lg font-semibold text-white mb-3">Referral Code</h3>
                 <div className="flex items-center gap-3">
                   <code className="bg-gray-700/50 text-blue-400 px-4 py-2 rounded font-mono text-lg">
-                    {userData.referralCode}
+                    {profile.referral_code}
                   </code>
                   <button
                     onClick={handleCopyReferral}
@@ -481,7 +583,6 @@ const UserProfile = () => {
             </div>
           </div>
         )}
-
         {activeTab === 'preferences' && (
           <div className="space-y-6">
             {/* Notifications */}
@@ -492,7 +593,7 @@ const UserProfile = () => {
               </h2>
               
               <div className="space-y-4">
-                {Object.entries(userData.preferences.notifications).map(([key, value]) => (
+                {Object.entries(profile.notification_preferences).map(([key, value]) => (
                   <div key={key} className="flex items-center justify-between">
                     <div>
                       <div className="text-white font-medium capitalize">
@@ -512,7 +613,7 @@ const UserProfile = () => {
                         type="checkbox"
                         checked={value}
                         className="sr-only peer"
-                        onChange={() => {}}
+                        onChange={(e) => handleNotificationChange(key, e.target.checked)}
                       />
                       <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
@@ -529,7 +630,7 @@ const UserProfile = () => {
               </h2>
               
               <div className="space-y-4">
-                {Object.entries(userData.preferences.privacy).map(([key, value]) => (
+                {Object.entries(profile.privacy_settings).map(([key, value]) => (
                   <div key={key} className="flex items-center justify-between">
                     <div>
                       <div className="text-white font-medium capitalize">
@@ -547,7 +648,7 @@ const UserProfile = () => {
                         type="checkbox"
                         checked={value}
                         className="sr-only peer"
-                        onChange={() => {}}
+                        onChange={(e) => handlePrivacyChange(key, e.target.checked)}
                       />
                       <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
@@ -557,7 +658,6 @@ const UserProfile = () => {
             </div>
           </div>
         )}
-
         {activeTab === 'security' && (
           <div className="space-y-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6">
@@ -664,17 +764,18 @@ const UserProfile = () => {
         {isEditing && (
           <div className="fixed bottom-6 right-6 flex gap-3">
             <button
-              onClick={() => setIsEditing(false)}
+              onClick={handleCancelEdit}
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center gap-2 shadow-lg"
             >
               <X size={16} />
               Cancel
             </button>
             <button
-              onClick={() => setIsEditing(false)}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center gap-2 shadow-lg"
+              onClick={handleSaveProfile}
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center gap-2 shadow-lg disabled:opacity-50"
             >
-              <Save size={16} />
+              {loading ? <Loader className="animate-spin" size={16} /> : <Save size={16} />}
               Save Changes
             </button>
           </div>
