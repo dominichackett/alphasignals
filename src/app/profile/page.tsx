@@ -31,11 +31,14 @@ import {
   CheckCircle,
   AlertCircle,
   Upload,
-  Loader
+  Loader,
+  Wallet
 } from 'lucide-react';
 import Header from '@/components/Header/Header';
-import { useProfile } from '../../hooks/userProfile';
+import { useProfile } from '../../hooks/userProfile'; // Fixed import - removed saveEthAddress
 import { useAuth } from '@/contexts/AuthContext';
+import { useWeb3Auth } from '@web3auth/modal/react'; // Fixed import path
+import { useAccount } from 'wagmi'; // Add Wagmi hook
 
 const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -46,18 +49,71 @@ const UserProfile = () => {
   const [userStats, setUserStats] = useState({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { isAuthenticated } = useAuth();
+  // Fixed: Use correct hooks (same as Header)
+  const { web3AuthUser, isAuthenticated } = useAuth();
+  const { web3Auth, isConnected } = useWeb3Auth();
+  const { address } = useAccount(); // Get address from Wagmi like Header does
+
   const {
     profile,
     loading,
     error,
     uploadingAvatar,
+    linkingEthAddress, // Add this loading state
     updateProfile,
     uploadAvatar,
+    linkEthAddress, // Fixed: Use correct function name
     updateNotificationPreferences,
     updatePrivacySettings,
+    hasEthAddress, // Add this utility
+    getFormattedEthAddress, // Add this utility
     setError
   } = useProfile();
+
+  // Simplified: Use address from Wagmi (same as Header)
+  const getEthAddress = () => {
+    return address || null; // Simply return the address from useAccount hook
+  };
+
+  // Fixed: Update the useEffect for ETH address (using address from useAccount)
+  useEffect(() => {
+    const updateEthAddress = async () => {
+      // Only proceed if user is authenticated, has an address, and profile exists but has no ETH address
+      if (isAuthenticated && address && profile && !hasEthAddress()) {
+        try {
+          console.log('Attempting to link ETH address:', address);
+          const success = await linkEthAddress(address);
+          if (success) {
+            console.log('ETH address linked successfully!');
+          } else {
+            console.log('Failed to link ETH address');
+          }
+        } catch (error) {
+          console.error('Failed to save ETH address:', error);
+        }
+      }
+    };
+
+    updateEthAddress();
+  }, [isAuthenticated, address, profile, hasEthAddress, linkEthAddress]);
+
+  // Add manual link wallet function (simplified)
+  const handleLinkWallet = async () => {
+    try {
+      const ethAddress = getEthAddress(); // Now synchronous
+      if (ethAddress) {
+        const success = await linkEthAddress(ethAddress);
+        if (success) {
+          console.log('Wallet linked successfully!');
+        }
+      } else {
+        setError('Unable to get wallet address. Please ensure your wallet is connected.');
+      }
+    } catch (error) {
+      console.error('Failed to link wallet:', error);
+      setError('Failed to link wallet. Please try again.');
+    }
+  };
 
   useEffect(() => {
     // Mock trading stats - in real app, fetch from API
@@ -166,6 +222,7 @@ const UserProfile = () => {
       {label}
     </button>
   );
+
   // Loading and error states
   if (!isAuthenticated) {
     return (
@@ -277,6 +334,41 @@ const UserProfile = () => {
                 </span>
               </div>
 
+              {/* ETH Address Display */}
+              <div className="mb-4">
+                {hasEthAddress() ? (
+                  <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <Wallet className="text-green-400" size={16} />
+                    <span className="text-green-400 font-medium">Wallet Connected:</span>
+                    <code className="bg-gray-700/50 text-green-400 px-2 py-1 rounded font-mono text-sm">
+                      {getFormattedEthAddress()}
+                    </code>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <AlertCircle className="text-yellow-400" size={16} />
+                    <span className="text-yellow-400 font-medium">No wallet connected</span>
+                    <button
+                      onClick={handleLinkWallet}
+                      disabled={linkingEthAddress || !address} // Check if address exists
+                      className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+                    >
+                      {linkingEthAddress ? (
+                        <>
+                          <Loader className="animate-spin" size={14} />
+                          Linking...
+                        </>
+                      ) : (
+                        <>
+                          <Wallet size={14} />
+                          Link Wallet
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {profile.bio && (
                 <p className="text-gray-300 mb-6 max-w-2xl leading-relaxed">
                   {profile.bio}
@@ -360,6 +452,7 @@ const UserProfile = () => {
             onClick={setActiveTab} 
           />
         </div>
+
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -488,6 +581,7 @@ const UserProfile = () => {
             </div>
           </div>
         )}
+
         {activeTab === 'account' && (
           <div className="space-y-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6">
@@ -583,6 +677,7 @@ const UserProfile = () => {
             </div>
           </div>
         )}
+
         {activeTab === 'preferences' && (
           <div className="space-y-6">
             {/* Notifications */}
@@ -658,6 +753,7 @@ const UserProfile = () => {
             </div>
           </div>
         )}
+
         {activeTab === 'security' && (
           <div className="space-y-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6">

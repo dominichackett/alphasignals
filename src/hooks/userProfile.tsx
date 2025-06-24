@@ -7,6 +7,7 @@ interface ProfileData {
   user_id: string
   name: string
   username: string
+  ethaddress: string // Fixed typo: was 'ethaddres'
   email: string
   phone?: string
   location?: string
@@ -44,6 +45,7 @@ export const useProfile = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [linkingEthAddress, setLinkingEthAddress] = useState(false)
   const { isAuthenticated } = useAuth()
 
   // Get auth headers with session
@@ -137,6 +139,71 @@ export const useProfile = () => {
     }
   }
 
+  // Link ETH address (using POST method with action)
+  const linkEthAddress = async (ethAddress: string) => {
+    if (!profile) return false
+
+    // Basic validation
+    if (!ethAddress || !/^0x[a-fA-F0-9]{40}$/.test(ethAddress)) {
+      setError('Invalid ETH address format')
+      return false
+    }
+
+    try {
+      setLinkingEthAddress(true)
+      setError(null)
+
+      const headers = await getAuthHeaders()
+
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'link_eth_address',
+          ethaddress: ethAddress
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to link ETH address`)
+      }
+
+      const data = await response.json()
+      setProfile(data.profile)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link ETH address')
+      console.error('ETH address linking error:', err)
+      return false
+    } finally {
+      setLinkingEthAddress(false)
+    }
+  }
+
+  // Update ETH address (using PUT method)
+  const updateEthAddress = async (ethAddress: string) => {
+    if (!profile) return false
+
+    // Basic validation
+    if (ethAddress && !/^0x[a-fA-F0-9]{40}$/.test(ethAddress)) {
+      setError('Invalid ETH address format')
+      return false
+    }
+
+    return await updateProfile({
+      ethaddress: ethAddress
+    })
+  }
+
+  // Remove ETH address
+  const removeEthAddress = async () => {
+    return await updateProfile({
+      ethaddress: ''
+    })
+  }
+
   // Upload avatar
   const uploadAvatar = async (file: File) => {
     if (!profile) return false
@@ -221,21 +288,95 @@ export const useProfile = () => {
     })
   }
 
+  // Update basic profile info
+  const updateBasicInfo = async (info: {
+    name?: string
+    username?: string
+    phone?: string
+    location?: string
+    bio?: string
+  }) => {
+    return await updateProfile(info)
+  }
+
+  // Check if ETH address is linked
+  const hasEthAddress = () => {
+    return !!(profile?.ethaddress && profile.ethaddress.trim() !== '')
+  }
+
+  // Get formatted ETH address
+  const getFormattedEthAddress = () => {
+    if (!profile?.ethaddress) return ''
+    const address = profile.ethaddress
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  // Validate profile completeness
+  const getProfileCompleteness = () => {
+    if (!profile) return 0
+
+    const fields = [
+      'name',
+      'username', 
+      'email',
+      'ethaddress',
+      'bio',
+      'location',
+      'avatar_url'
+    ]
+
+    const completed = fields.filter(field => {
+      const value = profile[field as keyof ProfileData]
+      return value && String(value).trim() !== ''
+    }).length
+
+    return Math.round((completed / fields.length) * 100)
+  }
+
+  // Clear error
+  const clearError = () => {
+    setError(null)
+  }
+
+  // Refresh profile
+  const refreshProfile = async () => {
+    await fetchProfile()
+  }
+
   useEffect(() => {
     fetchProfile()
   }, [isAuthenticated])
 
   return {
+    // State
     profile,
     loading,
     error,
     uploadingAvatar,
+    linkingEthAddress,
+    
+    // Basic operations
     fetchProfile,
     updateProfile,
+    refreshProfile,
+    clearError,
+    setError,
+    
+    // ETH address operations
+    linkEthAddress,
+    updateEthAddress,
+    removeEthAddress,
+    hasEthAddress,
+    getFormattedEthAddress,
+    
+    // Specific update methods
     uploadAvatar,
+    updateBasicInfo,
     updateNotificationPreferences,
     updatePrivacySettings,
     updateAppPreferences,
-    setError
+    
+    // Utility methods
+    getProfileCompleteness,
   }
 }

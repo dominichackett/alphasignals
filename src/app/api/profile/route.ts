@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
           name: user.user_metadata?.name || 'User',
           username: `user_${user.id.slice(0, 8)}`,
           email: user.email || '',
+          ethaddress: '', // Fixed typo and set default empty string
           verified: false,
           tier: 'Basic',
           referral_code: `REF_${user.id.slice(0, 8)}`,
@@ -161,6 +162,7 @@ export async function PUT(request: NextRequest) {
       username,
       phone,
       location,
+      ethaddress, // Fixed typo: was 'ethaddres'
       bio,
       notification_preferences,
       privacy_settings,
@@ -172,16 +174,58 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString()
     }
 
+    // Basic profile fields
     if (name !== undefined) updateData.name = name
     if (username !== undefined) updateData.username = username
     if (phone !== undefined) updateData.phone = phone
     if (location !== undefined) updateData.location = location
     if (bio !== undefined) updateData.bio = bio
+    if (ethaddress !== undefined) updateData.ethaddress = ethaddress // Fixed typo
+
+    // JSON fields
     if (notification_preferences !== undefined) updateData.notification_preferences = notification_preferences
     if (privacy_settings !== undefined) updateData.privacy_settings = privacy_settings
     if (app_preferences !== undefined) updateData.app_preferences = app_preferences
 
     console.log('Updating profile for user:', user.id, 'with data:', Object.keys(updateData))
+
+    // Check if username is unique (if being updated)
+    if (username !== undefined) {
+      const { data: existingUser, error: checkError } = await supabase
+        .from('user_profiles')
+        .select('id, user_id')
+        .eq('username', username)
+        .neq('user_id', user.id)
+        .single()
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Username check error:', checkError)
+        return NextResponse.json({ error: 'Failed to validate username' }, { status: 500 })
+      }
+
+      if (existingUser) {
+        return NextResponse.json({ error: 'Username already taken' }, { status: 400 })
+      }
+    }
+
+    // Check if ethaddress is unique (if being updated)
+    if (ethaddress !== undefined && ethaddress !== '') {
+      const { data: existingEthUser, error: ethCheckError } = await supabase
+        .from('user_profiles')
+        .select('id, user_id')
+        .eq('ethaddress', ethaddress)
+        .neq('user_id', user.id)
+        .single()
+
+      if (ethCheckError && ethCheckError.code !== 'PGRST116') {
+        console.error('ETH address check error:', ethCheckError)
+        return NextResponse.json({ error: 'Failed to validate ETH address' }, { status: 500 })
+      }
+
+      if (existingEthUser) {
+        return NextResponse.json({ error: 'ETH address already linked to another account' }, { status: 400 })
+      }
+    }
 
     const { data: updatedProfile, error: updateError } = await supabase
       .from('user_profiles')
@@ -193,13 +237,23 @@ export async function PUT(request: NextRequest) {
     if (updateError) {
       console.error('Profile update error:', updateError)
       if (updateError.code === '23505') {
-        return NextResponse.json({ error: 'Username already taken' }, { status: 400 })
+        // Handle unique constraint violations
+        if (updateError.message.includes('username')) {
+          return NextResponse.json({ error: 'Username already taken' }, { status: 400 })
+        }
+        if (updateError.message.includes('ethaddress')) {
+          return NextResponse.json({ error: 'ETH address already linked to another account' }, { status: 400 })
+        }
+        return NextResponse.json({ error: 'Duplicate value detected' }, { status: 400 })
       }
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
     }
 
     console.log('Profile updated successfully for user:', user.id)
-    return NextResponse.json({ profile: updatedProfile })
+    return NextResponse.json({ 
+      profile: updatedProfile,
+      message: 'Profile updated successfully'
+    })
 
   } catch (error) {
     console.error('Profile PUT error:', error)
@@ -245,11 +299,69 @@ export async function POST(request: NextRequest) {
 
     console.log('POST request from user:', user.id)
     
-    return NextResponse.json({ 
-      success: true, 
-      user: user.id,
-      message: 'POST operation completed successfully'
-    })
+    // Handle specific POST operations here
+    const { action, ...data } = body
+
+    switch (action) {
+      case 'link_eth_address':
+        // Handle linking ETH address specifically
+        const { ethaddress } = data
+        
+        if (!ethaddress) {
+          return NextResponse.json({ error: 'ETH address is required' }, { status: 400 })
+        }
+
+        // Validate ETH address format (basic check)
+        if (!/^0x[a-fA-F0-9]{40}$/.test(ethaddress)) {
+          return NextResponse.json({ error: 'Invalid ETH address format' }, { status: 400 })
+        }
+
+        // Check if address is already linked
+        const { data: existingEthUser, error: ethCheckError } = await supabase
+          .from('user_profiles')
+          .select('id, user_id')
+          .eq('ethaddress', ethaddress)
+          .neq('user_id', user.id)
+          .single()
+
+        if (ethCheckError && ethCheckError.code !== 'PGRST116') {
+          console.error('ETH address check error:', ethCheckError)
+          return NextResponse.json({ error: 'Failed to validate ETH address' }, { status: 500 })
+        }
+
+        if (existingEthUser) {
+          return NextResponse.json({ error: 'ETH address already linked to another account' }, { status: 400 })
+        }
+
+        // Update profile with ETH address
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            ethaddress,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .select()
+          .single()
+
+        if (updateError) {
+          console.error('ETH address update error:', updateError)
+          return NextResponse.json({ error: 'Failed to link ETH address' }, { status: 500 })
+        }
+
+        return NextResponse.json({ 
+          success: true,
+          profile: updatedProfile,
+          message: 'ETH address linked successfully'
+        })
+
+      default:
+        return NextResponse.json({ 
+          success: true, 
+          user: user.id,
+          message: 'POST operation completed successfully'
+        })
+    }
 
   } catch (error) {
     console.error('Profile POST error:', error)
