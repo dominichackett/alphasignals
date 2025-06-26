@@ -3,7 +3,8 @@ import React, { useEffect, useRef, memo, useState } from 'react';
 import Header from '@/components/Header/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMarketAnalysis } from '@/hooks/useMarketAnalysis';
-import { TrendingUp, BarChart3, Zap, Play, Save, Link, Download, CheckCircle, DollarSign, Lock } from 'lucide-react';
+import { TrendingUp, BarChart3, Zap, Play, Save, Link, Download, CheckCircle, DollarSign, Lock, AlertCircle } from 'lucide-react';
+import { useBlockchainSignals } from '@/hooks/useBlockchainSignals'
 
 const Chart = () => {
   const container = useRef(null);
@@ -16,7 +17,15 @@ const Chart = () => {
   const [saveStatus, setSaveStatus] = useState('');
   const [blockchainStatus, setBlockchainStatus] = useState('');
   const [tradeStatus, setTradeStatus] = useState('');
-  
+  const [savedSignalId, setSavedSignalId] = useState<string | null>(null)
+  const [blockchainSignalId, setBlockchainSignalId] = useState<string | null>(null)
+
+// Add the blockchain hook
+  const { 
+  isCreatingSignal, 
+  createSignalOnBlockchain, 
+  error: blockchainError 
+} = useBlockchainSignals()
   // NEW: State to store captured chart image
   const [capturedChartImage, setCapturedChartImage] = useState<string | null>(null);
   
@@ -445,124 +454,164 @@ const Chart = () => {
     }
   };
 
-  // Updated save analysis function to use stored image
   const saveAnalysis = async () => {
-    if (signals.length === 0) return;
+  if (signals.length === 0) return;
+  
+  setIsSaving(true);
+  setSaveStatus('');
+  
+  try {
+    // Use the captured image from state instead of re-capturing
+    let chartImageBase64 = capturedChartImage;
     
-    setIsSaving(true);
-    setSaveStatus('');
+    // If for some reason we don't have a captured image, try to capture one
+    if (!chartImageBase64) {
+      console.log('⚠️ No captured image found in state, capturing new one...');
+      try {
+        chartImageBase64 = await captureChartImage();
+        setCapturedChartImage(chartImageBase64);
+      } catch (imageError) {
+        console.warn('⚠️ Failed to capture chart image:', imageError);
+      }
+    } else {
+      console.log('✅ Using previously captured chart image from state');
+    }
+
+    // First save the analysis as before
+    const analysisData = {
+      asset_name: signals[0].assetName || 'Unknown Asset',
+      asset_type: mapAssetType(signals[0].assetName || 'Stock'),
+      pattern_name: signals[0].patternName || 'Technical Analysis',
+      sentiment: signals[0].sentiment || 'Neutral',
+      confidence: signals[0].confidence || 75,
+      description: signals[0].description || '',
+      recommendation: signals[0].recommendation || 'Hold',
+      recommendation_reason: signals[0].recommendationReason || 'Based on technical analysis',
+      price_targets: signals[0].priceTargets || {},
+      risk_reward: signals[0].riskReward || null,
+      indicators: signals[0].indicators || [],
+      chart_image_base64: chartImageBase64,
+      analysis_timestamp: signals[0].timestamp || new Date().toISOString(),
+      tags: [selectedAnalysis, 'Gemini AI']
+    };
+
+    console.log('💾 Saving analysis to database...');
     
-    try {
-      // Use the captured image from state instead of re-capturing
-      let chartImageBase64 = capturedChartImage;
+    // Save to database using the hook
+    const savedAnalysis = await createAnalysis(analysisData);
+    
+    if (savedAnalysis) {
+      setIsSaved(true);
+      setSaveStatus(`Analysis saved to database! ID: ${savedAnalysis.id}`);
       
-      // If for some reason we don't have a captured image, try to capture one
-      if (!chartImageBase64) {
-        console.log('⚠️ No captured image found in state, capturing new one...');
-        try {
-          chartImageBase64 = await captureChartImage();
-          setCapturedChartImage(chartImageBase64); // Store for future use
-        } catch (imageError) {
-          console.warn('⚠️ Failed to capture chart image:', imageError);
-        }
-      } else {
-        console.log('✅ Using previously captured chart image from state');
-      }
-
-      // Prepare analysis data for database
-      const analysisData = {
-        asset_name: signals[0].assetName || 'Unknown Asset',
-        asset_type: mapAssetType(signals[0].assetName || 'Stock'),
-        pattern_name: signals[0].patternName || 'Technical Analysis',
-        sentiment: signals[0].sentiment || 'Neutral',
-        confidence: signals[0].confidence || 75,
-        description: signals[0].description || '',
-        recommendation: signals[0].recommendation || 'Hold',
-        recommendation_reason: signals[0].recommendationReason || 'Based on technical analysis',
-        price_targets: signals[0].priceTargets || {},
-        risk_reward: signals[0].riskReward || null,
-        indicators: signals[0].indicators || [],
-        chart_image_base64: chartImageBase64,
-        analysis_timestamp: signals[0].timestamp || new Date().toISOString(),
-        tags: [selectedAnalysis, 'Gemini AI']
-      };
-
-      console.log('💾 Saving analysis to database...');
+      // Store the analysis ID for use in trading signal
+      setSavedSignalId(savedAnalysis.id);
       
-      // Save to database using the hook
-      const savedAnalysis = await createAnalysis(analysisData);
-      
-      if (savedAnalysis) {
-        setIsSaved(true);
-        setSaveStatus(`Analysis saved to database! ID: ${savedAnalysis.id}`);
-        
-        // Also create downloadable JSON file as backup
-        const downloadData = {
-          ...savedAnalysis,
-          downloadedAt: new Date().toISOString()
-        };
-        
-        const dataStr = JSON.stringify(downloadData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `analysis_${savedAnalysis.id}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        setTimeout(() => setSaveStatus(''), 5000);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error saving analysis:', error);
-      setSaveStatus(`Failed to save analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setTimeout(() => setSaveStatus(''), 5000);
-    } finally {
-      setIsSaving(false);
     }
-  };
+    
+  } catch (error) {
+    console.error('❌ Error saving analysis:', error);
+    setSaveStatus(`Failed to save analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    setTimeout(() => setSaveStatus(''), 5000);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
-  const addToBlockchain = async () => {
-    if (signals.length === 0 || !isSaved) return;
+const addToBlockchain = async () => {
+  if (signals.length === 0 || !isSaved || !savedSignalId) return;
+  
+  setIsAddingToBlockchain(true);
+  setBlockchainStatus('');
+  
+  try {
+    // First, save the trading signal to the database
+    console.log('📊 Creating trading signal in database...');
     
-    setIsAddingToBlockchain(true);
-    setBlockchainStatus('');
+    const tradingSignalData = {
+      analysis_id: savedSignalId,
+      asset_name: signals[0].assetName || 'Unknown Asset',
+      asset_type: mapAssetType(signals[0].assetName || 'Stock'),
+      pattern_name: signals[0].patternName || 'Technical Analysis',
+      recommendation: signals[0].recommendation || 'Hold',
+      sentiment: signals[0].sentiment || 'Neutral',
+      confidence: signals[0].confidence || 75,
+      entry_price: signals[0].priceTargets?.entry || 0,
+      exit_price: signals[0].priceTargets?.exit || null,
+      take_profit: signals[0].priceTargets?.target || null,
+      stop_loss: signals[0].priceTargets?.stopLoss || null,
+      reason: signals[0].recommendationReason || 'Based on technical analysis',
+      signal_created_at: signals[0].timestamp || new Date().toISOString(),
+      enabled: false // Will be enabled after blockchain confirmation
+    };
+
+    // Get session token for API call
+    const { supabaseUser } = useAuth();
+    const session = supabaseUser?.session;
     
-    try {
-      // Simulate blockchain transaction
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const blockchainData = {
-        signalHash: `0x${Math.random().toString(16).substr(2, 64)}`,
-        transactionId: `tx_${Date.now()}`,
-        blockNumber: Math.floor(Math.random() * 1000000) + 18000000,
-        timestamp: new Date().toISOString(),
-        gasUsed: Math.floor(Math.random() * 50000) + 21000,
-        confirmations: Math.floor(Math.random() * 10) + 1,
-        analysisData: {
-          assetName: signals[0].assetName,
-          patternName: signals[0].patternName,
-          recommendation: signals[0].recommendation,
-          confidence: signals[0].confidence,
-          timestamp: signals[0].timestamp
-        }
-      };
-      
-      setIsPosted(true);
-      setBlockchainStatus(`Signal posted to blockchain! TX: ${blockchainData.transactionId}`);
-      setTimeout(() => setBlockchainStatus(''), 5000);
-      
-    } catch (error) {
-      console.error('Error adding to blockchain:', error);
-      setBlockchainStatus('Failed to add to blockchain');
-      setTimeout(() => setBlockchainStatus(''), 3000);
-    } finally {
-      setIsAddingToBlockchain(false);
+    if (!session) {
+      throw new Error('No valid session found');
     }
-  };
+
+    // Save trading signal to database
+    const response = await fetch('/api/trading-signals', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${JSON.stringify(session)}`
+      },
+      body: JSON.stringify(tradingSignalData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to save trading signal');
+    }
+
+    const { signal: savedTradingSignal } = await response.json();
+    console.log('✅ Trading signal saved to database:', savedTradingSignal.id);
+
+    // Now create the signal on blockchain using the database ID
+    console.log('🔗 Creating signal on blockchain...');
+    
+    const blockchainResult = await createSignalOnBlockchain(savedTradingSignal.id);
+    
+    if (blockchainResult.success) {
+      setIsPosted(true);
+      setBlockchainSignalId(blockchainResult.signalId || 'N/A');
+      setBlockchainStatus(`Signal posted to blockchain! TX: ${blockchainResult.txHash}`);
+      
+      // Update the trading signal to enabled after successful blockchain creation
+      if (blockchainResult.signalId) {
+        await fetch('/api/trading-signals', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${JSON.stringify(session)}`
+          },
+          body: JSON.stringify({
+            signal_id: savedTradingSignal.id,
+            enabled: true,
+            blockchain_signal_id: blockchainResult.signalId
+          })
+        });
+      }
+      
+      setTimeout(() => setBlockchainStatus(''), 10000);
+    } else {
+      throw new Error(blockchainResult.error || 'Failed to create signal on blockchain');
+    }
+    
+  } catch (error) {
+    console.error('Error adding to blockchain:', error);
+    setBlockchainStatus(`Failed to add to blockchain: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    setTimeout(() => setBlockchainStatus(''), 5000);
+  } finally {
+    setIsAddingToBlockchain(false);
+  }
+};
+
 
   const tradeSignal = async () => {
     if (signals.length === 0 || !isSaved || !isPosted) return;
@@ -732,37 +781,37 @@ const Chart = () => {
                 </button>
                 
                 {/* Post Signal Button */}
-                <button
-                  onClick={addToBlockchain}
-                  disabled={isAddingToBlockchain || !isSaved || isPosted}
-                  className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-                    isPosted
-                      ? 'bg-orange-700 text-orange-200 cursor-default'
-                      : !isSaved
-                      ? 'bg-gray-500 cursor-not-allowed text-gray-400'
-                      : isAddingToBlockchain
-                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                      : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white transform hover:scale-105 shadow-lg'
-                  }`}
-                  title={!isSaved ? 'Save analysis first to post signal' : ''}
-                >
-                  {isPosted ? (
-                    <>
-                      <CheckCircle size={18} />
-                      Posted
-                    </>
-                  ) : isAddingToBlockchain ? (
-                    <>
-                      <Link size={18} className="animate-pulse" />
-                      Posting...
-                    </>
-                  ) : (
-                    <>
-                      <Link size={18} />
-                      Post Signal
-                    </>
-                  )}
-                </button>
+              <button
+  onClick={addToBlockchain}
+  disabled={isAddingToBlockchain || isCreatingSignal || !isSaved || isPosted}
+  className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+    isPosted
+      ? 'bg-orange-700 text-orange-200 cursor-default'
+      : !isSaved
+      ? 'bg-gray-500 cursor-not-allowed text-gray-400'
+      : (isAddingToBlockchain || isCreatingSignal)
+      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+      : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white transform hover:scale-105 shadow-lg'
+  }`}
+  title={!isSaved ? 'Save analysis first to post signal' : ''}
+>
+  {isPosted ? (
+    <>
+      <CheckCircle size={18} />
+      Posted to Blockchain
+    </>
+  ) : (isAddingToBlockchain || isCreatingSignal) ? (
+    <>
+      <Link size={18} className="animate-pulse" />
+      {isCreatingSignal ? 'Creating on Blockchain...' : 'Posting...'}
+    </>
+  ) : (
+    <>
+      <Link size={18} />
+      Post Signal
+    </>
+  )}
+</button>
 
                 {/* Trade Signal Button */}
                 <button
@@ -805,6 +854,15 @@ const Chart = () => {
                     {saveStatus}
                   </div>
                 )}
+                {blockchainError && (
+                 <div className="mb-4">
+                <div className="p-3 rounded-lg flex items-center gap-2 bg-red-500/20 border border-red-500 text-red-400">
+                 <AlertCircle size={16} />
+                Blockchain Error: {blockchainError}
+              </div>
+              </div>
+)}
+
                 {blockchainStatus && (
                   <div className={`p-3 rounded-lg flex items-center gap-2 ${
                     blockchainStatus.includes('posted') 
