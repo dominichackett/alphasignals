@@ -18,7 +18,7 @@ export const useWeb3AuthSupabase = (): Web3AuthSupabaseUser & {
      web3Auth,
      isConnected,
      user: web3AuthUserFromHook, // Rename this since it's not working
-     logout: web3AuthLogout,
+     logout: logout,
      status
    } = useWeb3Auth()
      
@@ -161,7 +161,7 @@ const signInWithSupabase = useCallback(async () => {
              
       // Sign out from both Web3Auth and Supabase
       await Promise.all([
-        web3AuthLogout(),
+        logout(),
         supabase.auth.signOut()
       ])
              
@@ -173,7 +173,7 @@ const signInWithSupabase = useCallback(async () => {
     } finally {
       setLoading(false)
     }
-  }, [web3AuthLogout])
+  }, [logout])
 
   // Auto-sign in to Supabase when Web3Auth user is available
   useEffect(() => {

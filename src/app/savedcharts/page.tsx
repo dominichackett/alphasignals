@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header/Header';
+import { useMarketAnalysis } from '@/hooks/useMarketAnalysis';
 import { 
   BarChart3, 
   Calendar, 
@@ -17,158 +18,66 @@ import {
   Zap,
   CheckCircle,
   XCircle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 
 const SavedCharts = () => {
   const router = useRouter();
-  const [savedCharts, setSavedCharts] = useState([]);
-  const [filteredCharts, setFilteredCharts] = useState([]);
+  const {
+    analyses,
+    loading,
+    error,
+    fetchAnalyses,
+    updateAnalysis,
+    getFilteredAnalyses,
+    getStatistics
+  } = useMarketAnalysis();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+  const [filteredCharts, setFilteredCharts] = useState([]);
 
-  // Mock data for saved charts
+  // Load initial data
   useEffect(() => {
-    const mockCharts = [
-      {
-        id: 'analysis_1704567890123',
-        assetName: 'NASDAQ:AAPL',
-        assetType: 'Stock',
-        patternName: 'EMA Crossover',
-        sentiment: 'Bullish',
-        confidence: 85,
-        recommendation: 'Buy',
-        savedAt: '2024-01-06T14:30:00.000Z',
-        chartImage: '/chart.jpg',
-        priceTargets: {
-          entry: 185.50,
-          target: 205.75,
-          stopLoss: 175.20,
-          support: 180.00,
-          resistance: 195.00
-        },
-        riskReward: 2.1,
-        status: 'saved',
-        isPosted: false,
-        isTraded: false
-      },
-      {
-        id: 'analysis_1704567890124',
-        assetName: 'NASDAQ:TSLA',
-        assetType: 'Stock',
-        patternName: 'Head and Shoulders',
-        sentiment: 'Bearish',
-        confidence: 72,
-        recommendation: 'Sell',
-        savedAt: '2024-01-05T10:15:00.000Z',
-        chartImage: '/chart.jpg',
-        priceTargets: {
-          entry: 245.80,
-          target: 215.30,
-          stopLoss: 260.00,
-          support: 230.00,
-          resistance: 255.00
-        },
-        riskReward: 1.8,
-        status: 'posted',
-        isPosted: true,
-        isTraded: false
-      },
-      {
-        id: 'analysis_1704567890125',
-        assetName: 'BINANCE:BTCUSDT',
-        assetType: 'Crypto',
-        patternName: 'Triangle Pattern',
-        sentiment: 'Bullish',
-        confidence: 91,
-        recommendation: 'Buy',
-        savedAt: '2024-01-04T16:45:00.000Z',
-        chartImage: '/chart.jpg',
-        priceTargets: {
-          entry: 42150.00,
-          target: 48200.00,
-          stopLoss: 39800.00,
-          support: 41000.00,
-          resistance: 44500.00
-        },
-        riskReward: 2.6,
-        status: 'traded',
-        isPosted: true,
-        isTraded: true
-      },
-      {
-        id: 'analysis_1704567890126',
-        assetName: 'NASDAQ:GOOGL',
-        assetType: 'Stock',
-        patternName: 'Support/Resistance Bounce',
-        sentiment: 'Bullish',
-        confidence: 78,
-        recommendation: 'Buy',
-        savedAt: '2024-01-03T11:20:00.000Z',
-        chartImage: '/chart.jpg',
-        priceTargets: {
-          entry: 142.30,
-          target: 158.90,
-          stopLoss: 135.75,
-          support: 140.00,
-          resistance: 150.00
-        },
-        riskReward: 2.5,
-        status: 'saved',
-        isPosted: false,
-        isTraded: false
-      },
-      {
-        id: 'analysis_1704567890127',
-        assetName: 'NASDAQ:MSFT',
-        assetType: 'Stock',
-        patternName: 'Bollinger Band Squeeze',
-        sentiment: 'Bearish',
-        confidence: 69,
-        recommendation: 'Sell',
-        savedAt: '2024-01-02T09:10:00.000Z',
-        chartImage: '/chart.jpg',
-        priceTargets: {
-          entry: 378.50,
-          target: 352.25,
-          stopLoss: 390.00,
-          support: 360.00,
-          resistance: 385.00
-        },
-        riskReward: 2.3,
-        status: 'posted',
-        isPosted: true,
-        isTraded: false
-      }
-    ];
-    
-    setSavedCharts(mockCharts);
-    setFilteredCharts(mockCharts);
+    fetchAnalyses({ status: 'active' });
   }, []);
 
   // Filter and search logic
   useEffect(() => {
-    let filtered = savedCharts;
+    let filtered = [...analyses];
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(chart => 
-        chart.assetName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        chart.patternName.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(analysis => 
+        analysis.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        analysis.pattern_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Apply type filter
     if (filterType !== 'all') {
-      if (filterType === 'stocks') {
-        filtered = filtered.filter(chart => chart.assetType === 'Stock');
-      } else if (filterType === 'crypto') {
-        filtered = filtered.filter(chart => chart.assetType === 'Crypto');
-      } else if (filterType === 'bullish') {
-        filtered = filtered.filter(chart => chart.sentiment === 'Bullish');
-      } else if (filterType === 'bearish') {
-        filtered = filtered.filter(chart => chart.sentiment === 'Bearish');
+      switch (filterType) {
+        case 'stocks':
+          filtered = filtered.filter(analysis => analysis.asset_type === 'Stock');
+          break;
+        case 'crypto':
+          filtered = filtered.filter(analysis => analysis.asset_type === 'Crypto');
+          break;
+        case 'forex':
+          filtered = filtered.filter(analysis => analysis.asset_type === 'Forex');
+          break;
+        case 'bullish':
+          filtered = filtered.filter(analysis => analysis.sentiment === 'Bullish');
+          break;
+        case 'bearish':
+          filtered = filtered.filter(analysis => analysis.sentiment === 'Bearish');
+          break;
+        case 'neutral':
+          filtered = filtered.filter(analysis => analysis.sentiment === 'Neutral');
+          break;
       }
     }
 
@@ -176,45 +85,68 @@ const SavedCharts = () => {
     filtered = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'newest':
-          return new Date(b.savedAt) - new Date(a.savedAt);
+          return new Date(b.created_at) - new Date(a.created_at);
         case 'oldest':
-          return new Date(a.savedAt) - new Date(b.savedAt);
+          return new Date(a.created_at) - new Date(b.created_at);
         case 'confidence':
           return b.confidence - a.confidence;
         case 'riskReward':
-          return b.riskReward - a.riskReward;
+          return (b.risk_reward || 0) - (a.risk_reward || 0);
+        case 'assetName':
+          return a.asset_name.localeCompare(b.asset_name);
         default:
           return 0;
       }
     });
 
     setFilteredCharts(filtered);
-  }, [savedCharts, searchTerm, filterType, sortBy]);
+  }, [analyses, searchTerm, filterType, sortBy]);
 
-  const handleChartSelect = (chart) => {
-    // Navigate to ViewChart page with the chart ID
-    router.push(`/viewchart/${chart.id}`);
+  const handleChartSelect = (analysis) => {
+    // Navigate to ViewChart page with the analysis ID
+    router.push(`/viewchart/${analysis.id}`);
   };
 
-  const handleDeleteChart = (chartId, e) => {
+  const handleDeleteChart = async (analysisId, e) => {
     e.stopPropagation();
-    setSavedCharts(charts => charts.filter(chart => chart.id !== chartId));
-  };
+    
+    if (!confirm('Are you sure you want to delete this analysis?')) {
+      return;
+    }
 
-  const getStatusIcon = (chart) => {
-    if (chart.isTraded) {
-      return <CheckCircle className="text-green-400" size={16} />;
-    } else if (chart.isPosted) {
-      return <LinkIcon className="text-orange-400" size={16} />;
-    } else {
-      return <Clock className="text-gray-400" size={16} />;
+    try {
+      // Update status to 'expired' instead of deleting
+      await updateAnalysis(analysisId, { status: 'expired' });
+      
+      // Refresh the list
+      fetchAnalyses({ status: 'active' });
+    } catch (error) {
+      console.error('Failed to delete analysis:', error);
+      alert('Failed to delete analysis. Please try again.');
     }
   };
 
-  const getStatusText = (chart) => {
-    if (chart.isTraded) return 'Traded';
-    if (chart.isPosted) return 'Posted';
-    return 'Saved';
+  const handleRefresh = () => {
+    fetchAnalyses({ status: 'active' });
+  };
+
+  const getStatusIcon = (analysis) => {
+    // You can extend this based on your business logic
+    // For now, we'll show based on recommendation
+    switch (analysis.recommendation) {
+      case 'Buy':
+        return <TrendingUp className="text-green-400" size={16} />;
+      case 'Sell':
+        return <TrendingDown className="text-red-400" size={16} />;
+      case 'Hold':
+        return <Clock className="text-yellow-400" size={16} />;
+      default:
+        return <Clock className="text-gray-400" size={16} />;
+    }
+  };
+
+  const getStatusText = (analysis) => {
+    return analysis.recommendation;
   };
 
   const formatDate = (dateString) => {
@@ -227,6 +159,58 @@ const SavedCharts = () => {
     });
   };
 
+  const getSentimentColor = (sentiment) => {
+    switch (sentiment) {
+      case 'Bullish':
+        return 'text-green-400';
+      case 'Bearish':
+        return 'text-red-400';
+      case 'Neutral':
+        return 'text-yellow-400';
+      default:
+        return 'text-gray-400';
+    }
+  };
+
+  const getRecommendationBadgeColor = (recommendation) => {
+    switch (recommendation) {
+      case 'Buy':
+        return 'bg-green-500/20 text-green-400 border-green-500';
+      case 'Sell':
+        return 'bg-red-500/20 text-red-400 border-red-500';
+      case 'Hold':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500';
+      default:
+        return 'bg-gray-500/20 text-gray-400 border-gray-500';
+    }
+  };
+
+  // Get statistics for the header
+  const stats = getStatistics();
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white">
+        <Header />
+        <div className="p-6 pt-24 max-w-7xl mx-auto">
+          <div className="text-center py-16">
+            <XCircle size={64} className="text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-red-400 mb-2">
+              Error Loading Charts
+            </h3>
+            <p className="text-gray-400 mb-4">{error}</p>
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black text-white">
       <Header />
@@ -234,13 +218,46 @@ const SavedCharts = () => {
       <div className="p-6 pt-24 max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-            <BarChart3 className="text-blue-400" size={32} />
-            Saved Charts
-          </h1>
-          <p className="text-gray-400">
-            View and manage your saved trading analysis charts
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                <BarChart3 className="text-blue-400" size={32} />
+                Saved Charts
+              </h1>
+              <p className="text-gray-400">
+                View and manage your saved trading analysis charts
+              </p>
+            </div>
+            
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
+            >
+              <RefreshCw className={`${loading ? 'animate-spin' : ''}`} size={16} />
+              Refresh
+            </button>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
+              <div className="text-2xl font-bold text-white">{stats.total}</div>
+              <div className="text-sm text-gray-400">Total Analyses</div>
+            </div>
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
+              <div className="text-2xl font-bold text-green-400">{stats.byRecommendation.Buy || 0}</div>
+              <div className="text-sm text-gray-400">Buy Signals</div>
+            </div>
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
+              <div className="text-2xl font-bold text-red-400">{stats.byRecommendation.Sell || 0}</div>
+              <div className="text-sm text-gray-400">Sell Signals</div>
+            </div>
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
+              <div className="text-2xl font-bold text-blue-400">{stats.averageConfidence}%</div>
+              <div className="text-sm text-gray-400">Avg. Confidence</div>
+            </div>
+          </div>
         </div>
 
         {/* Filters and Search */}
@@ -267,8 +284,10 @@ const SavedCharts = () => {
               <option value="all">All Types</option>
               <option value="stocks">Stocks Only</option>
               <option value="crypto">Crypto Only</option>
+              <option value="forex">Forex Only</option>
               <option value="bullish">Bullish Signals</option>
               <option value="bearish">Bearish Signals</option>
+              <option value="neutral">Neutral Signals</option>
             </select>
 
             {/* Sort By */}
@@ -281,6 +300,7 @@ const SavedCharts = () => {
               <option value="oldest">Oldest First</option>
               <option value="confidence">Highest Confidence</option>
               <option value="riskReward">Best Risk/Reward</option>
+              <option value="assetName">Asset Name (A-Z)</option>
             </select>
 
             {/* Results Count */}
@@ -292,115 +312,155 @@ const SavedCharts = () => {
           </div>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-16">
+            <Loader2 size={48} className="text-blue-400 mx-auto mb-4 animate-spin" />
+            <p className="text-gray-400">Loading your saved charts...</p>
+          </div>
+        )}
+
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredCharts.map((chart) => (
-            <div
-              key={chart.id}
-              onClick={() => handleChartSelect(chart)}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 hover:border-blue-500 transition-all duration-200 cursor-pointer transform hover:scale-105 shadow-xl hover:shadow-2xl group"
-            >
-              {/* Chart Image */}
-              <div className="relative">
-                <img
-                  src={chart.chartImage}
-                  alt={`${chart.assetName} Chart`}
-                  className="w-full h-48 object-cover rounded-t-lg"
-                />
-                
-                {/* Status Badge */}
-                <div className="absolute top-3 right-3">
-                  <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${
-                    chart.isTraded 
-                      ? 'bg-green-500/20 text-green-400 border border-green-500'
-                      : chart.isPosted
-                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500'
-                      : 'bg-gray-500/20 text-gray-400 border border-gray-500'
-                  }`}>
-                    {getStatusIcon(chart)}
-                    {getStatusText(chart)}
+        {!loading && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredCharts.map((analysis) => (
+              <div
+                key={analysis.id}
+                onClick={() => handleChartSelect(analysis)}
+                className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 hover:border-blue-500 transition-all duration-200 cursor-pointer transform hover:scale-105 shadow-xl hover:shadow-2xl group"
+              >
+                {/* Chart Image */}
+                <div className="relative">
+                  {analysis.chart_image_url ? (
+                    <img
+                      src={analysis.chart_image_url}
+                      alt={`${analysis.asset_name} Chart`}
+                      className="w-full h-48 object-cover rounded-t-lg"
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-gray-700/50 rounded-t-lg flex items-center justify-center">
+                      <BarChart3 size={48} className="text-gray-500" />
+                    </div>
+                  )}
+                  
+                  {/* Recommendation Badge */}
+                  <div className="absolute top-3 right-3">
+                    <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border ${getRecommendationBadgeColor(analysis.recommendation)}`}>
+                      {getStatusIcon(analysis)}
+                      {getStatusText(analysis)}
+                    </div>
                   </div>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => handleDeleteChart(analysis.id, e)}
+                    className="absolute top-3 left-3 p-2 bg-red-500/20 hover:bg-red-500/40 border border-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  >
+                    <Trash2 size={14} className="text-red-400" />
+                  </button>
                 </div>
 
-                {/* Delete Button */}
-                <button
-                  onClick={(e) => handleDeleteChart(chart.id, e)}
-                  className="absolute top-3 left-3 p-2 bg-red-500/20 hover:bg-red-500/40 border border-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                >
-                  <Trash2 size={14} className="text-red-400" />
-                </button>
-              </div>
+                {/* Chart Info */}
+                <div className="p-4">
+                  {/* Asset and Pattern */}
+                  <div className="mb-3">
+                    <h3 className="text-lg font-semibold text-white mb-1">
+                      {analysis.asset_name}
+                    </h3>
+                    <p className="text-blue-300 text-sm">{analysis.pattern_name}</p>
+                    <p className="text-gray-400 text-xs">{analysis.asset_type}</p>
+                  </div>
 
-              {/* Chart Info */}
-              <div className="p-4">
-                {/* Asset and Pattern */}
-                <div className="mb-3">
-                  <h3 className="text-lg font-semibold text-white mb-1">
-                    {chart.assetName}
-                  </h3>
-                  <p className="text-blue-300 text-sm">{chart.patternName}</p>
-                </div>
+                  {/* Key Metrics Row */}
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    <div className="text-center">
+                      <div className={`text-lg font-bold ${getSentimentColor(analysis.sentiment)}`}>
+                        {analysis.sentiment === 'Bullish' ? (
+                          <TrendingUp className="inline mr-1" size={16} />
+                        ) : analysis.sentiment === 'Bearish' ? (
+                          <TrendingDown className="inline mr-1" size={16} />
+                        ) : (
+                          <Clock className="inline mr-1" size={16} />
+                        )}
+                        {analysis.sentiment}
+                      </div>
+                      <div className="text-xs text-gray-400">Sentiment</div>
+                    </div>
+                    
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-white">
+                        {analysis.confidence}%
+                      </div>
+                      <div className="text-xs text-gray-400">Confidence</div>
+                    </div>
+                  </div>
 
-                {/* Key Metrics Row */}
-                <div className="grid grid-cols-2 gap-4 mb-3">
-                  <div className="text-center">
-                    <div className={`text-lg font-bold ${
-                      chart.sentiment === 'Bullish' ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      {chart.sentiment === 'Bullish' ? (
-                        <TrendingUp className="inline mr-1" size={16} />
-                      ) : (
-                        <TrendingDown className="inline mr-1" size={16} />
+                  {/* Price Targets */}
+                  {analysis.price_targets && (
+                    <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                      {analysis.price_targets.entry && (
+                        <div className="bg-gray-700/50 rounded p-2">
+                          <div className="text-gray-400">Entry</div>
+                          <div className="text-white font-mono">${analysis.price_targets.entry}</div>
+                        </div>
                       )}
-                      {chart.sentiment}
+                      {analysis.price_targets.target && (
+                        <div className="bg-gray-700/50 rounded p-2">
+                          <div className="text-gray-400">Target</div>
+                          <div className="text-green-400 font-mono">${analysis.price_targets.target}</div>
+                        </div>
+                      )}
+                      {analysis.risk_reward && (
+                        <div className="bg-gray-700/50 rounded p-2">
+                          <div className="text-gray-400">R/R</div>
+                          <div className="text-blue-400 font-semibold">{analysis.risk_reward}:1</div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-400">Sentiment</div>
-                  </div>
-                  
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-white">
-                      {chart.confidence}%
+                  )}
+
+                  {/* Tags */}
+                  {analysis.tags && analysis.tags.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex flex-wrap gap-1">
+                        {analysis.tags.slice(0, 3).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {analysis.tags.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-500/20 text-gray-300 text-xs rounded-full">
+                            +{analysis.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-400">Confidence</div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Price Targets */}
-                <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
-                  <div className="bg-gray-700/50 rounded p-2">
-                    <div className="text-gray-400">Entry</div>
-                    <div className="text-white font-mono">${chart.priceTargets.entry}</div>
-                  </div>
-                  <div className="bg-gray-700/50 rounded p-2">
-                    <div className="text-gray-400">Target</div>
-                    <div className="text-green-400 font-mono">${chart.priceTargets.target}</div>
-                  </div>
-                  <div className="bg-gray-700/50 rounded p-2">
-                    <div className="text-gray-400">R/R</div>
-                    <div className="text-blue-400 font-semibold">{chart.riskReward}:1</div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="flex justify-between items-center pt-3 border-t border-gray-600">
-                  <div className="flex items-center text-xs text-gray-400">
-                    <Calendar size={12} className="mr-1" />
-                    {formatDate(chart.savedAt)}
-                  </div>
-                  
-                  <div className="flex items-center text-blue-400 text-sm group-hover:text-blue-300">
-                    <Eye size={14} className="mr-1" />
-                    View
-                    <ChevronRight size={14} className="ml-1" />
+                  {/* Footer */}
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-600">
+                    <div className="flex items-center text-xs text-gray-400">
+                      <Calendar size={12} className="mr-1" />
+                      {formatDate(analysis.created_at)}
+                    </div>
+                    
+                    <div className="flex items-center text-blue-400 text-sm group-hover:text-blue-300">
+                      <Eye size={14} className="mr-1" />
+                      View
+                      <ChevronRight size={14} className="ml-1" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Empty State */}
-        {filteredCharts.length === 0 && (
+        {!loading && filteredCharts.length === 0 && (
           <div className="text-center py-16">
             <BarChart3 size={64} className="text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-400 mb-2">

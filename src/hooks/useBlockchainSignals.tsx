@@ -6,7 +6,7 @@ import { TRADING_SIGNALS_ADDRESS, TRADING_SIGNALS_ABI } from '@/utils/contract'
 interface UseBlockchainSignalsResult {
   isCreatingSignal: boolean
   isClosingSignal: boolean
-  createSignalOnBlockchain: (databaseId: string) => Promise<{ success: boolean; txHash?: string; error?: string }>
+  createSignalOnBlockchain: (databaseId: string,entryPrice:number, targetPrice:number,stopLoss:number,confidence:number, assetName:string,patternName:string,  assetType:string, recommendation:string,sentiment:string) => Promise<{ success: boolean; txHash?: string; error?: string }>
   closeSignalOnBlockchain: (signalId: number) => Promise<{ success: boolean; txHash?: string; error?: string }>
   getSignalFromBlockchain: (signalId: number) => Promise<any>
   error: string | null
@@ -32,6 +32,7 @@ export const useBlockchainSignals = (): UseBlockchainSignalsResult => {
       
       // Verify we're on the correct network (Avalanche Fuji Testnet)
       const network = await ethersProvider.getNetwork()
+      console.log(`network: ${JSON.stringify(network)}`)
       if (network.chainId !== BigInt(43113)) {
         throw new Error('Please switch to Avalanche Fuji Testnet')
       }
@@ -50,81 +51,129 @@ export const useBlockchainSignals = (): UseBlockchainSignalsResult => {
   }, [getProviderAndSigner])
 
   // Create signal on blockchain
-  const createSignalOnBlockchain = useCallback(async (databaseId: string) => {
-    setIsCreatingSignal(true)
-    setError(null)
+  const createSignalOnBlockchain = useCallback(async (
+  databaseId: string,
+  entryPrice: number, 
+  targetPrice: number,
+  stopLoss: number,
+  confidence: number, 
+  assetName: string,
+  patternName: string,  
+  assetType: string, 
+  recommendation: string,
+  sentiment: string
+) => {
+  setIsCreatingSignal(true)
+  setError(null)
 
-    try {
-      console.log('Creating signal on blockchain for database ID:', databaseId)
-      
-      const contract = await getContract()
-      
-      // Estimate gas
-      const gasEstimate = await contract.createSignalFromDatabase.estimateGas(databaseId)
-      const gasLimit = gasEstimate * BigInt(120) / BigInt(100) // Add 20% buffer
-      
-      console.log('Estimated gas:', gasEstimate.toString())
-      
-      // Send transaction
-      const tx = await contract.createSignalFromDatabase(databaseId, {
+  try {
+    console.log('Creating signal on blockchain for database ID:', databaseId)
+    
+    const contract = await getContract()
+    
+    // Convert numbers to wei (18 decimals) for price values
+    // Confidence stays as regular number since it's likely 0-100
+    const entryPriceWei = ethers.parseUnits(entryPrice.toString(), 18)
+    const targetPriceWei = ethers.parseUnits(targetPrice.toString(), 18)
+    const stopLossWei = ethers.parseUnits(stopLoss.toString(), 18)
+    const confidenceBigInt = BigInt(confidence) // Convert to BigInt but no decimals
+    
+    console.log('Converted values:', {
+      entryPriceWei: entryPriceWei.toString(),
+      targetPriceWei: targetPriceWei.toString(),
+      stopLossWei: stopLossWei.toString(),
+      confidenceBigInt: confidenceBigInt.toString()
+    })
+    
+    // Estimate gas with converted values
+    const gasEstimate = await contract.createSignalFromDatabase.estimateGas(
+      databaseId,
+      entryPriceWei, 
+      targetPriceWei,
+      stopLossWei,
+      confidence, 
+      assetName,
+      patternName,  
+      assetType, 
+      recommendation,
+      sentiment
+    )
+    const gasLimit = gasEstimate * BigInt(120) / BigInt(100) // Add 20% buffer
+    
+    console.log('Estimated gas:', gasEstimate.toString())
+    
+    // Send transaction with converted values
+    const tx = await contract.createSignalFromDatabase(
+      databaseId,
+      entryPriceWei, 
+      targetPriceWei,
+      stopLossWei,
+      confidence, 
+      assetName,
+      patternName,  
+      assetType, 
+      recommendation,
+      sentiment,
+      {
         gasLimit: gasLimit
+      }
+    )
+    
+    console.log('Transaction sent:', tx.hash)
+    
+    // Wait for confirmation
+    const receipt = await tx.wait()
+    
+    if (receipt.status === 1) {
+      console.log('Signal created successfully on blockchain:', receipt.transactionHash)
+      
+      // Parse events to get the signal ID
+      const signalCreatedEvent = receipt.logs.find((log: any) => {
+        try {
+          const parsed = contract.interface.parseLog(log)
+          return parsed?.name === 'SignalCreated'
+        } catch {
+          return false
+        }
       })
       
-      console.log('Transaction sent:', tx.hash)
-      
-      // Wait for confirmation
-      const receipt = await tx.wait()
-      
-      if (receipt.status === 1) {
-        console.log('Signal created successfully on blockchain:', receipt.transactionHash)
-        
-        // Parse events to get the signal ID
-        const signalCreatedEvent = receipt.logs.find((log: any) => {
-          try {
-            const parsed = contract.interface.parseLog(log)
-            return parsed?.name === 'SignalCreated'
-          } catch {
-            return false
-          }
-        })
-        
-        let signalId = null
-        if (signalCreatedEvent) {
-          const parsed = contract.interface.parseLog(signalCreatedEvent)
-          signalId = parsed?.args?.signalId?.toString()
-          console.log('Blockchain signal ID:', signalId)
-        }
-        
-        return {
-          success: true,
-          txHash: receipt.transactionHash,
-          signalId: signalId
-        }
-      } else {
-        throw new Error('Transaction failed')
+      let signalId = null
+      if (signalCreatedEvent) {
+        const parsed = contract.interface.parseLog(signalCreatedEvent)
+        signalId = parsed?.args?.signalId?.toString()
+        console.log('Blockchain signal ID:', signalId)
       }
-      
-    } catch (err: any) {
-      console.error('Error creating signal on blockchain:', err)
-      
-      let errorMessage = 'Failed to create signal on blockchain'
-      
-      if (err.reason) {
-        errorMessage = err.reason
-      } else if (err.message) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
       
       return {
-        success: false,
-        error: errorMessage
+        success: true,
+        txHash: receipt.transactionHash,
+        signalId: signalId
       }
-    } finally {
-      setIsCreatingSignal(false)
+    } else {
+      throw new Error('Transaction failed')
     }
-  }, [getContract])
+    
+  } catch (err: any) {
+    console.error('Error creating signal on blockchain:', err)
+    
+    let errorMessage = 'Failed to create signal on blockchain'
+    
+    if (err.reason) {
+      errorMessage = err.reason
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    setError(errorMessage)
+    
+    return {
+      success: false,
+      error: errorMessage
+    }
+  } finally {
+    setIsCreatingSignal(false)
+  }
+}, [getContract])
 
   // Close signal on blockchain
   const closeSignalOnBlockchain = useCallback(async (signalId: number) => {

@@ -1,6 +1,6 @@
 // app/api/auth/web3auth-jwt/route.ts
 import jwt from 'jsonwebtoken'
-import { createServerSupabaseClient } from '../../../../lib/superbase'
+import { createServerSupabaseClient } from '../../../../lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {

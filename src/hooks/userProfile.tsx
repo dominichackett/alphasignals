@@ -161,7 +161,7 @@ export const useProfile = () => {
         credentials: 'include',
         body: JSON.stringify({
           action: 'link_eth_address',
-          ethaddress: ethAddress
+          ethaddress: ethAddress.toLocaleLowerCase()
         }),
       })
 

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMarketAnalysis } from '@/hooks/useMarketAnalysis';
 import { TrendingUp, BarChart3, Zap, Play, Save, Link, Download, CheckCircle, DollarSign, Lock, AlertCircle } from 'lucide-react';
 import { useBlockchainSignals } from '@/hooks/useBlockchainSignals'
-
+import { useTradingSignals } from '@/hooks/useTradingSignals'
 const Chart = () => {
   const container = useRef(null);
   const [selectedAnalysis, setSelectedAnalysis] = useState('trend');
@@ -17,15 +17,22 @@ const Chart = () => {
   const [saveStatus, setSaveStatus] = useState('');
   const [blockchainStatus, setBlockchainStatus] = useState('');
   const [tradeStatus, setTradeStatus] = useState('');
-  const [savedSignalId, setSavedSignalId] = useState<string | null>(null)
   const [blockchainSignalId, setBlockchainSignalId] = useState<string | null>(null)
+  const [savedSignalId, setSavedSignalId] = useState<string | null>(null)
 
-// Add the blockchain hook
+
   const { 
   isCreatingSignal, 
   createSignalOnBlockchain, 
   error: blockchainError 
 } = useBlockchainSignals()
+
+const { 
+  createTradingSignal, 
+  updateTradingSignal,
+  saving: savingTradingSignal
+} = useTradingSignals()
+
   // NEW: State to store captured chart image
   const [capturedChartImage, setCapturedChartImage] = useState<string | null>(null);
   
@@ -454,7 +461,7 @@ const Chart = () => {
     }
   };
 
-  const saveAnalysis = async () => {
+const saveAnalysis = async () => {
   if (signals.length === 0) return;
   
   setIsSaving(true);
@@ -519,6 +526,7 @@ const Chart = () => {
   }
 };
 
+// Replace your existing addToBlockchain function with this:
 const addToBlockchain = async () => {
   if (signals.length === 0 || !isSaved || !savedSignalId) return;
   
@@ -526,7 +534,7 @@ const addToBlockchain = async () => {
   setBlockchainStatus('');
   
   try {
-    // First, save the trading signal to the database
+    // First, save the trading signal to the database using the hook
     console.log('📊 Creating trading signal in database...');
     
     const tradingSignalData = {
@@ -546,55 +554,30 @@ const addToBlockchain = async () => {
       enabled: false // Will be enabled after blockchain confirmation
     };
 
-    // Get session token for API call
-    const { supabaseUser } = useAuth();
-    const session = supabaseUser?.session;
+    // Save trading signal to database using the hook
+    const savedTradingSignal = await createTradingSignal(tradingSignalData);
     
-    if (!session) {
-      throw new Error('No valid session found');
+    if (!savedTradingSignal) {
+      throw new Error('Failed to save trading signal to database');
     }
 
-    // Save trading signal to database
-    const response = await fetch('/api/trading-signals', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${JSON.stringify(session)}`
-      },
-      body: JSON.stringify(tradingSignalData)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to save trading signal');
-    }
-
-    const { signal: savedTradingSignal } = await response.json();
     console.log('✅ Trading signal saved to database:', savedTradingSignal.id);
 
     // Now create the signal on blockchain using the database ID
     console.log('🔗 Creating signal on blockchain...');
     
-    const blockchainResult = await createSignalOnBlockchain(savedTradingSignal.id);
+    const blockchainResult = await createSignalOnBlockchain(savedTradingSignal.id,savedTradingSignal.entry_price, savedTradingSignal.take_profit,savedTradingSignal.stop_loss,savedTradingSignal.confidence, savedTradingSignal.asset_name,savedTradingSignal.pattern_name,  savedTradingSignal.asset_type, savedTradingSignal.recommendation,savedTradingSignal.sentiment);
     
     if (blockchainResult.success) {
       setIsPosted(true);
       setBlockchainSignalId(blockchainResult.signalId || 'N/A');
-      setBlockchainStatus(`Signal posted to blockchain! TX: ${blockchainResult.txHash}`);
+      setBlockchainStatus(`Signal posted to blockchain!`);
       
       // Update the trading signal to enabled after successful blockchain creation
       if (blockchainResult.signalId) {
-        await fetch('/api/trading-signals', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${JSON.stringify(session)}`
-          },
-          body: JSON.stringify({
-            signal_id: savedTradingSignal.id,
-            enabled: true,
-            blockchain_signal_id: blockchainResult.signalId
-          })
+        await updateTradingSignal(savedTradingSignal.id, {
+          enabled: true,
+          blockchain_signal_id: blockchainResult.signalId
         });
       }
       
@@ -611,7 +594,6 @@ const addToBlockchain = async () => {
     setIsAddingToBlockchain(false);
   }
 };
-
 
   const tradeSignal = async () => {
     if (signals.length === 0 || !isSaved || !isPosted) return;
@@ -781,15 +763,15 @@ const addToBlockchain = async () => {
                 </button>
                 
                 {/* Post Signal Button */}
-              <button
+          <button
   onClick={addToBlockchain}
-  disabled={isAddingToBlockchain || isCreatingSignal || !isSaved || isPosted}
+  disabled={isAddingToBlockchain || isCreatingSignal || savingTradingSignal || !isSaved || isPosted}
   className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
     isPosted
       ? 'bg-orange-700 text-orange-200 cursor-default'
       : !isSaved
       ? 'bg-gray-500 cursor-not-allowed text-gray-400'
-      : (isAddingToBlockchain || isCreatingSignal)
+      : (isAddingToBlockchain || isCreatingSignal || savingTradingSignal)
       ? 'bg-gray-600 cursor-not-allowed text-gray-400'
       : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white transform hover:scale-105 shadow-lg'
   }`}
@@ -800,10 +782,12 @@ const addToBlockchain = async () => {
       <CheckCircle size={18} />
       Posted to Blockchain
     </>
-  ) : (isAddingToBlockchain || isCreatingSignal) ? (
+  ) : (isAddingToBlockchain || isCreatingSignal || savingTradingSignal) ? (
     <>
       <Link size={18} className="animate-pulse" />
-      {isCreatingSignal ? 'Creating on Blockchain...' : 'Posting...'}
+      {savingTradingSignal ? 'Saving Signal...' : 
+       isCreatingSignal ? 'Creating on Blockchain...' : 
+       'Posting...'}
     </>
   ) : (
     <>
@@ -854,15 +838,14 @@ const addToBlockchain = async () => {
                     {saveStatus}
                   </div>
                 )}
-                {blockchainError && (
-                 <div className="mb-4">
-                <div className="p-3 rounded-lg flex items-center gap-2 bg-red-500/20 border border-red-500 text-red-400">
-                 <AlertCircle size={16} />
-                Blockchain Error: {blockchainError}
-              </div>
-              </div>
+               {blockchainError && (
+  <div className="mb-4">
+    <div className="p-3 rounded-lg flex items-center gap-2 bg-red-500/20 border border-red-500 text-red-400">
+      <AlertCircle size={16} />
+      Blockchain Error: {blockchainError}
+    </div>
+  </div>
 )}
-
                 {blockchainStatus && (
                   <div className={`p-3 rounded-lg flex items-center gap-2 ${
                     blockchainStatus.includes('posted') 
