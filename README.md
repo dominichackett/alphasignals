@@ -18,19 +18,19 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Chainlink Integration
 
-## Learn More
+### 1.  Chainklink Functions to verify signal create
+https://github.com/dominichackett/alphasignals/blob/b544d78b7b18d32cbbe752e47ff15bba73db74ed/src/solidity/contracts/alphasignals.sol#L189-L209
 
-To learn more about Next.js, take a look at the following resources:
+### 2. Chainlink Functions to Update Asset Prices
+https://github.com/dominichackett/alphasignals/blob/b544d78b7b18d32cbbe752e47ff15bba73db74ed/src/solidity/contracts/TradingSignalsAutomation.sol#L231-L241
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 2.  Chainlink Functions and Automation to update signal status
+https://github.com/dominichackett/alphasignals/blob/b544d78b7b18d32cbbe752e47ff15bba73db74ed/src/solidity/contracts/TradingSignalsAutomation.sol#L141-L198
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Avalanch Integration
+### 1 Contracts launched on Fuji testnet
+https://testnet.snowtrace.io/address/0xBd7349B9F8A0793F45bd9c9928b13498b469B59F
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

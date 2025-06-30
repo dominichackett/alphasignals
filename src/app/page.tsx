@@ -29,7 +29,7 @@ const LitProtocolStyles = () => {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="text-center space-y-8">
             <h1 className="text-5xl md:text-7xl font-bold leading-tight">
-              <span className="block">Technical Trading Agent for</span>
+              <span className="block">AI Technical Analyst/Trading Signals</span>
               <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 bg-clip-text text-transparent">
                  Stocks, Crypto and Forex
               </span>
@@ -182,22 +182,7 @@ Join the traders and builders leveraging intelligent analysis and a marketplace 
       </section>
 
       {/* Brand Integration Section */}
-      <section className="py-16 px-6">
-        <div className="max-w-6xl mx-auto text-center space-y-8">
-          <h3 className="text-2xl text-gray-400">Integrated with</h3>
-          <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
-           {logos.map((logo) => (
-  <div key={logo.id} className="w-32 h-16 bg-gray-800 rounded-lg flex items-center justify-center">
-    <img 
-      src={logo.src} 
-      alt={logo.alt}
-      className="w-60 h-16 object-cover rounded-md"
-    />
-  </div>
-))}
-          </div>
-        </div>
-      </section>
+      
     </div>
   );
 };
