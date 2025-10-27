@@ -52,12 +52,7 @@ const Header = () => {
     }
   };
 
-  const logout = async ()=>{
-
-            if(web3Auth)
-            await web3Auth.logout();
-
-  }
+  
 
   // Handle connect - trigger Web3Auth modal
   const handleConnect = async () => {
@@ -236,7 +231,7 @@ const Header = () => {
               
               {/* Sign Out Button */}
               <button 
-                onClick={logout}
+                onClick={signOut}
                 disabled={loading}
                 className="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >

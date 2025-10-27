@@ -28,22 +28,24 @@ export const useWeb3AuthSupabase = (): Web3AuthSupabaseUser & {
   const [hasAttemptedAuth, setHasAttemptedAuth] = useState(false)
   const [web3AuthUser, setWeb3AuthUser] = useState<any>(null) // Our own user state
 
-  // Manually fetch user when Web3Auth connects
+  // Manually fetch user when Web3Auth connects and store it
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserAndStore = async () => {
       if (web3Auth && web3Auth.connected && status === 'connected' && !web3AuthUser) {
         try {
           console.log('Fetching user data manually...')
           const userInfo = await web3Auth.getUserInfo()
           console.log('Manual fetch successful:', !!userInfo)
           setWeb3AuthUser(userInfo)
+          // Store user info in local storage
+          localStorage.setItem('web3AuthUser', JSON.stringify(userInfo))
         } catch (error) {
           console.error('Manual user fetch failed:', error)
         }
       }
     }
 
-    fetchUser()
+    fetchUserAndStore()
   }, [web3Auth, status, isConnected, web3AuthUser])
 
   // Clear user when disconnected - BUT keep Supabase session
@@ -164,6 +166,9 @@ const signInWithSupabase = useCallback(async () => {
         logout(),
         supabase.auth.signOut()
       ])
+      
+      // Clear local storage
+      localStorage.removeItem('web3AuthUser')
              
       setSupabaseUser(null)
       setError(null)
@@ -235,34 +240,20 @@ const signInWithSupabase = useCallback(async () => {
     return () => subscription.unsubscribe()
   }, [error])
 
-  // Also check for existing session on mount and restore Web3Auth if needed
+  // Check for existing user in local storage on mount
   useEffect(() => {
-    const checkExistingSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('=== CHECKING EXISTING SESSION ===')
-      console.log('Existing session:', !!session)
-      console.log('Existing user:', !!session?.user)
-      console.log('================================')
-      
-      if (session?.user) {
-        setSupabaseUser(session.user)
-        
-        // If we have a Supabase session but no Web3Auth user, restore from metadata
-        if (!web3AuthUser && session.user.user_metadata) {
-          console.log('Restoring Web3Auth user from Supabase metadata...')
-          const restoredUser = {
-            email: session.user.email,
-            name: session.user.user_metadata.name,
-            profileImage: session.user.user_metadata.picture,
-            sub: session.user.user_metadata.web3auth_sub,
-            typeOfLogin: session.user.user_metadata.provider,
-          }
-          setWeb3AuthUser(restoredUser)
-        }
+    console.log('Checking for user in local storage...')
+    const storedUser = localStorage.getItem('web3AuthUser')
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser)
+        console.log('Restored user from local storage:', !!user)
+        setWeb3AuthUser(user)
+      } catch (error) {
+        console.error('Failed to parse stored user:', error)
+        localStorage.removeItem('web3AuthUser')
       }
     }
-    
-    checkExistingSession()
   }, [])
 
   return {
