@@ -49,6 +49,23 @@ async function getSessionFromHeader(request: NextRequest) {
   }
 }
 
+// Check user tier
+async function checkUserTier(userId: string) {
+  const supabase = createServiceSupabaseClient()
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('tier')
+    .eq('user_id', userId)
+    .single()
+
+  if (error) {
+    console.error('Error fetching user tier:', error)
+    return false
+  }
+
+  return data && data.tier !== '' && data.tier !== null
+}
+
 // GET - Fetch user's market analyses
 export async function GET(request: NextRequest) {
   try {
@@ -75,6 +92,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check user tier
+    const isTierValid = await checkUserTier(user.id)
+    if (!isTierValid) {
+      return NextResponse.json({ error: 'You do not have permission to view market analysis.' }, { status: 403 })
+    }
+
     // Parse query parameters
     const url = new URL(request.url)
     const limit = parseInt(url.searchParams.get('limit') || '20')
@@ -82,6 +105,9 @@ export async function GET(request: NextRequest) {
     const status = url.searchParams.get('status') || 'active'
     const asset_type = url.searchParams.get('asset_type')
     const sentiment = url.searchParams.get('sentiment')
+    const search = url.searchParams.get('search')
+    const sortBy = url.searchParams.get('sortBy') || 'created_at'
+    const ascending = url.searchParams.get('ascending') === 'true'
 
     console.log('Fetching analyses for user:', user.id)
 
@@ -91,7 +117,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('user_id', user.id)
       .eq('status', status)
-      .order('created_at', { ascending: false })
+      .order(sortBy, { ascending })
       .range(offset, offset + limit - 1)
 
     // Add filters if provided
@@ -101,6 +127,10 @@ export async function GET(request: NextRequest) {
     if (sentiment) {
       query = query.eq('sentiment', sentiment)
     }
+if (search) {
+  query = query.or(`asset_name.ilike.%${search}%,pattern_name.ilike.%${search}%`)
+}   
+    console.log(query.toString());
 
     const { data: analyses, error: fetchError } = await query
 
@@ -123,6 +153,10 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.eq('sentiment', sentiment)
     }
 
+    if (search) {
+  countQuery = countQuery.or(`asset_name.ilike.%${search}%,pattern_name.ilike.%${search}%`)
+}
+ 
     const { count, error: countError } = await countQuery
 
     if (countError) {
@@ -144,7 +178,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
 // POST - Create new market analysis
 export async function POST(request: NextRequest) {
   try {
@@ -170,6 +203,12 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       console.error('Auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user tier
+    const isTierValid = await checkUserTier(user.id)
+    if (!isTierValid) {
+      return NextResponse.json({ error: 'You do not have permission to create market analysis.' }, { status: 403 })
     }
 
     // Parse request body
@@ -332,6 +371,12 @@ export async function PUT(request: NextRequest) {
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user tier
+    const isTierValid = await checkUserTier(user.id)
+    if (!isTierValid) {
+      return NextResponse.json({ error: 'You do not have permission to update market analysis.' }, { status: 403 })
     }
 
     const body = await request.json()

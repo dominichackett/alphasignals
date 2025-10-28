@@ -58,6 +58,24 @@ async function verifyUser(session: any) {
   }
 }
 
+// Check user tier
+async function checkUserTier(userId: string) {
+  const supabase = createServiceSupabaseClient()
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('tier')
+    .eq('user_id', userId)
+    .single()
+
+  if (error) {
+    console.error('Error fetching user tier:', error)
+    return false
+  }
+
+  return data && data.tier !== '' && data.tier !== null
+}
+
+
 // GET - Fetch trading signals with user profiles
 export async function GET(request: NextRequest) {
   try {
@@ -72,6 +90,12 @@ export async function GET(request: NextRequest) {
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 })
+    }
+
+    // Check user tier
+    const isTierValid = await checkUserTier(user.id)
+    if (!isTierValid) {
+      return NextResponse.json({ error: 'You do not have permission to view trading signals.' }, { status: 403 })
     }
 
     // Parse query parameters
@@ -175,6 +199,12 @@ export async function POST(request: NextRequest) {
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 })
+    }
+
+    // Check user tier
+    const isTierValid = await checkUserTier(user.id)
+    if (!isTierValid) {
+      return NextResponse.json({ error: 'You do not have permission to create trading signals.' }, { status: 403 })
     }
 
     // Parse request body
@@ -288,6 +318,12 @@ export async function PUT(request: NextRequest) {
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 })
+    }
+
+    // Check user tier
+    const isTierValid = await checkUserTier(user.id)
+    if (!isTierValid) {
+      return NextResponse.json({ error: 'You do not have permission to update trading signals.' }, { status: 403 })
     }
 
     const body = await request.json()

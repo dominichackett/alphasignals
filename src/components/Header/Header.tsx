@@ -94,9 +94,7 @@ const Header = () => {
              <a href="/" className="text-gray-300 hover:text-white transition-colors duration-200">
               Home
             </a>
-            <a href="/signals" className="text-gray-300 hover:text-white transition-colors duration-200">
-              Signals
-            </a>
+          
             
             {/* Account Dropdown - Only show when fully authenticated */}
             {isAuthenticated && (
@@ -132,18 +130,7 @@ const Header = () => {
                       >
                         Saved Charts
                       </a>
-                      <a 
-                        href="/mysignals" 
-                        className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
-                      >
-                        My Signals
-                      </a>
-                       <a 
-                        href="/mytrades" 
-                        className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
-                      >
-                        My Trading Bot
-                      </a>
+                     
                         <a 
                         href="/profile" 
                         className="block px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors duration-200"
@@ -262,9 +249,7 @@ const Header = () => {
               <a href="/" className="text-gray-300 hover:text-white transition-colors duration-200">
                 Home
               </a>
-              <a href="/signals" className="text-gray-300 hover:text-white transition-colors duration-200">
-                Signals
-              </a>
+           
               
               {/* Mobile Account Section - Only show when authenticated */}
               {isAuthenticated && (
@@ -277,12 +262,7 @@ const Header = () => {
                     <a href="/savedcharts" className="block text-gray-300 hover:text-white transition-colors duration-200">
                       Saved Charts
                     </a>
-                    <a href="/mysignals" className="block text-gray-300 hover:text-white transition-colors duration-200">
-                      My Signals
-                    </a>
-                    <a href="/mytrades" className="block text-gray-300 hover:text-white transition-colors duration-200">
-                      My Trades
-                    </a>
+                   
                     <a href="/profile" className="block text-gray-300 hover:text-white transition-colors duration-200">
                       Profile
                     </a>

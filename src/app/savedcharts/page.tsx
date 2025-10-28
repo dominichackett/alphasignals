@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header/Header';
 import { useMarketAnalysis } from '@/hooks/useMarketAnalysis';
@@ -31,79 +31,55 @@ const SavedCharts = () => {
     error,
     fetchAnalyses,
     updateAnalysis,
-    getFilteredAnalyses,
-    getStatistics
+    getStatistics,
+    pagination
   } = useMarketAnalysis();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-  const [filteredCharts, setFilteredCharts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
 
-  // Load initial data
   useEffect(() => {
-    fetchAnalyses({ status: 'active' });
-  }, []);
-
-  // Filter and search logic
-  useEffect(() => {
-    let filtered = [...analyses];
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(analysis => 
-        analysis.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        analysis.pattern_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Apply type filter
+    let filters = { status: 'active', limit: pageSize, offset: (currentPage - 1) * pageSize, search: searchTerm };
     if (filterType !== 'all') {
-      switch (filterType) {
-        case 'stocks':
-          filtered = filtered.filter(analysis => analysis.asset_type === 'Stock');
-          break;
-        case 'crypto':
-          filtered = filtered.filter(analysis => analysis.asset_type === 'Crypto');
-          break;
-        case 'forex':
-          filtered = filtered.filter(analysis => analysis.asset_type === 'Forex');
-          break;
-        case 'bullish':
-          filtered = filtered.filter(analysis => analysis.sentiment === 'Bullish');
-          break;
-        case 'bearish':
-          filtered = filtered.filter(analysis => analysis.sentiment === 'Bearish');
-          break;
-        case 'neutral':
-          filtered = filtered.filter(analysis => analysis.sentiment === 'Neutral');
-          break;
+      if (['Stock', 'Crypto', 'Forex'].includes(filterType)) {
+        filters.asset_type = filterType;
+      } else if (['Bullish', 'Bearish', 'Neutral'].includes(filterType)) {
+        filters.sentiment = filterType;
       }
     }
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'newest':
+        sortOptions = { sortBy: 'created_at', ascending: false };
+        break;
+      case 'oldest':
+        sortOptions = { sortBy: 'created_at', ascending: true };
+        break;
+      case 'confidence':
+        sortOptions = { sortBy: 'confidence', ascending: false };
+        break;
+      case 'riskReward':
+        sortOptions = { sortBy: 'risk_reward', ascending: false };
+        break;
+      case 'assetName':
+        sortOptions = { sortBy: 'asset_name', ascending: true };
+        break;
+    }
 
-    // Apply sorting
-    filtered = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.created_at) - new Date(a.created_at);
-        case 'oldest':
-          return new Date(a.created_at) - new Date(b.created_at);
-        case 'confidence':
-          return b.confidence - a.confidence;
-        case 'riskReward':
-          return (b.risk_reward || 0) - (a.risk_reward || 0);
-        case 'assetName':
-          return a.asset_name.localeCompare(b.asset_name);
-        default:
-          return 0;
-      }
-    });
+    fetchAnalyses({ ...filters, ...sortOptions });
+  }, [pageSize, currentPage, searchTerm, filterType, sortBy]);
 
-    setFilteredCharts(filtered);
-  }, [analyses, searchTerm, filterType, sortBy]);
+  const handleSearch = (e) => {
+    if (e.key === 'Enter') {
+      setCurrentPage(1);
+      fetchAnalyses({ status: 'active', limit: pageSize, offset: 0, search: searchTerm });
+    }
+  }
 
   const handleChartSelect = (analysis) => {
-    // Navigate to ViewChart page with the analysis ID
     router.push(`/viewchart/${analysis.id}`);
   };
 
@@ -115,11 +91,36 @@ const SavedCharts = () => {
     }
 
     try {
-      // Update status to 'expired' instead of deleting
       await updateAnalysis(analysisId, { status: 'expired' });
       
-      // Refresh the list
-      fetchAnalyses({ status: 'active' });
+      let filters = { status: 'active', limit: pageSize, offset: (currentPage - 1) * pageSize, search: searchTerm };
+      if (filterType !== 'all') {
+        if (['Stock', 'Crypto', 'Forex'].includes(filterType)) {
+          filters.asset_type = filterType;
+        } else if (['Bullish', 'Bearish', 'Neutral'].includes(filterType)) {
+          filters.sentiment = filterType;
+        }
+      }
+      let sortOptions = {};
+      switch (sortBy) {
+        case 'newest':
+          sortOptions = { sortBy: 'created_at', ascending: false };
+          break;
+        case 'oldest':
+          sortOptions = { sortBy: 'created_at', ascending: true };
+          break;
+        case 'confidence':
+          sortOptions = { sortBy: 'confidence', ascending: false };
+          break;
+        case 'riskReward':
+          sortOptions = { sortBy: 'risk_reward', ascending: false };
+          break;
+        case 'assetName':
+          sortOptions = { sortBy: 'asset_name', ascending: true };
+          break;
+      }
+  
+      fetchAnalyses({ ...filters, ...sortOptions });
     } catch (error) {
       console.error('Failed to delete analysis:', error);
       alert('Failed to delete analysis. Please try again.');
@@ -127,12 +128,55 @@ const SavedCharts = () => {
   };
 
   const handleRefresh = () => {
-    fetchAnalyses({ status: 'active' });
+    let filters = { status: 'active', limit: pageSize, offset: (currentPage - 1) * pageSize, search: searchTerm };
+    if (filterType !== 'all') {
+      if (['Stock', 'Crypto', 'Forex'].includes(filterType)) {
+        filters.asset_type = filterType;
+      } else if (['Bullish', 'Bearish', 'Neutral'].includes(filterType)) {
+        filters.sentiment = filterType;
+      }
+    }
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'newest':
+        sortOptions = { sortBy: 'created_at', ascending: false };
+        break;
+      case 'oldest':
+        sortOptions = { sortBy: 'created_at', ascending: true };
+        break;
+      case 'confidence':
+        sortOptions = { sortBy: 'confidence', ascending: false };
+        break;
+      case 'riskReward':
+        sortOptions = { sortBy: 'risk_reward', ascending: false };
+        break;
+      case 'assetName':
+        sortOptions = { sortBy: 'asset_name', ascending: true };
+        break;
+    }
+
+    fetchAnalyses({ ...filters, ...sortOptions });
+  };
+
+  const handleNextPage = () => {
+    if (pagination.hasMore) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handlePageSizeChange = (e) => {
+    const newSize = parseInt(e.target.value);
+    setPageSize(newSize);
+    setCurrentPage(1);
   };
 
   const getStatusIcon = (analysis) => {
-    // You can extend this based on your business logic
-    // For now, we'll show based on recommendation
     switch (analysis.recommendation) {
       case 'Buy':
         return <TrendingUp className="text-green-400" size={16} />;
@@ -185,7 +229,6 @@ const SavedCharts = () => {
     }
   };
 
-  // Get statistics for the header
   const stats = getStatistics();
 
   if (error) {
@@ -216,7 +259,6 @@ const SavedCharts = () => {
       <Header />
       
       <div className="p-6 pt-24 max-w-7xl mx-auto">
-        {/* Page Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -232,17 +274,16 @@ const SavedCharts = () => {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
             >
               <RefreshCw className={`${loading ? 'animate-spin' : ''}`} size={16} />
               Refresh
             </button>
           </div>
 
-          {/* Quick Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
-              <div className="text-2xl font-bold text-white">{stats.total}</div>
+              <div className="text-2xl font-bold text-white">{pagination.total}</div>
               <div className="text-sm text-gray-400">Total Analyses</div>
             </div>
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
@@ -260,37 +301,34 @@ const SavedCharts = () => {
           </div>
         </div>
 
-        {/* Filters and Search */}
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-6 mb-6 border border-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
-                placeholder="Search charts..."
+                placeholder="Search by asset name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleSearch}
                 className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
               />
             </div>
 
-            {/* Type Filter */}
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
             >
               <option value="all">All Types</option>
-              <option value="stocks">Stocks Only</option>
-              <option value="crypto">Crypto Only</option>
-              <option value="forex">Forex Only</option>
-              <option value="bullish">Bullish Signals</option>
-              <option value="bearish">Bearish Signals</option>
-              <option value="neutral">Neutral Signals</option>
+              <option value="Stock">Stocks Only</option>
+              <option value="Crypto">Crypto Only</option>
+              <option value="Forex">Forex Only</option>
+              <option value="Bullish">Bullish Signals</option>
+              <option value="Bearish">Bearish Signals</option>
+              <option value="Neutral">Neutral Signals</option>
             </select>
 
-            {/* Sort By */}
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -303,16 +341,24 @@ const SavedCharts = () => {
               <option value="assetName">Asset Name (A-Z)</option>
             </select>
 
-            {/* Results Count */}
+            <select
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              className="px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            >
+              <option value={6}>6 per page</option>
+              <option value={12}>12 per page</option>
+              <option value={24}>24 per page</option>
+            </select>
+
             <div className="flex items-center justify-center bg-gray-700/30 rounded-lg px-4 py-3">
               <span className="text-gray-300">
-                {filteredCharts.length} chart{filteredCharts.length !== 1 ? 's' : ''}
+                {pagination.total} chart{pagination.total !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div className="text-center py-16">
             <Loader2 size={48} className="text-blue-400 mx-auto mb-4 animate-spin" />
@@ -320,16 +366,14 @@ const SavedCharts = () => {
           </div>
         )}
 
-        {/* Charts Grid */}
         {!loading && (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredCharts.map((analysis) => (
+            {analyses.map((analysis) => (
               <div
                 key={analysis.id}
                 onClick={() => handleChartSelect(analysis)}
                 className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 hover:border-blue-500 transition-all duration-200 cursor-pointer transform hover:scale-105 shadow-xl hover:shadow-2xl group"
               >
-                {/* Chart Image */}
                 <div className="relative">
                   {analysis.chart_image_url ? (
                     <img
@@ -343,7 +387,6 @@ const SavedCharts = () => {
                     </div>
                   )}
                   
-                  {/* Recommendation Badge */}
                   <div className="absolute top-3 right-3">
                     <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border ${getRecommendationBadgeColor(analysis.recommendation)}`}>
                       {getStatusIcon(analysis)}
@@ -351,7 +394,6 @@ const SavedCharts = () => {
                     </div>
                   </div>
 
-                  {/* Delete Button */}
                   <button
                     onClick={(e) => handleDeleteChart(analysis.id, e)}
                     className="absolute top-3 left-3 p-2 bg-red-500/20 hover:bg-red-500/40 border border-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -360,9 +402,7 @@ const SavedCharts = () => {
                   </button>
                 </div>
 
-                {/* Chart Info */}
                 <div className="p-4">
-                  {/* Asset and Pattern */}
                   <div className="mb-3">
                     <h3 className="text-lg font-semibold text-white mb-1">
                       {analysis.asset_name}
@@ -371,7 +411,6 @@ const SavedCharts = () => {
                     <p className="text-gray-400 text-xs">{analysis.asset_type}</p>
                   </div>
 
-                  {/* Key Metrics Row */}
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div className="text-center">
                       <div className={`text-lg font-bold ${getSentimentColor(analysis.sentiment)}`}>
@@ -395,7 +434,6 @@ const SavedCharts = () => {
                     </div>
                   </div>
 
-                  {/* Price Targets */}
                   {analysis.price_targets && (
                     <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
                       {analysis.price_targets.entry && (
@@ -419,7 +457,6 @@ const SavedCharts = () => {
                     </div>
                   )}
 
-                  {/* Tags */}
                   {analysis.tags && analysis.tags.length > 0 && (
                     <div className="mb-3">
                       <div className="flex flex-wrap gap-1">
@@ -440,7 +477,6 @@ const SavedCharts = () => {
                     </div>
                   )}
 
-                  {/* Footer */}
                   <div className="flex justify-between items-center pt-3 border-t border-gray-600">
                     <div className="flex items-center text-xs text-gray-400">
                       <Calendar size={12} className="mr-1" />
@@ -459,8 +495,27 @@ const SavedCharts = () => {
           </div>
         )}
 
-        {/* Empty State */}
-        {!loading && filteredCharts.length === 0 && (
+        <div className="flex justify-center items-center mt-8">
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1 || loading}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-l-lg transition-colors"
+          >
+            Previous
+          </button>
+          <span className="px-4 py-2 bg-gray-800 text-white">
+            Page {currentPage} of {Math.ceil(pagination.total / pageSize)}
+          </span>
+          <button
+            onClick={handleNextPage}
+            disabled={!pagination.hasMore || loading}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded-r-lg transition-colors"
+          >
+            Next
+          </button>
+        </div>
+
+        {!loading && analyses.length === 0 && (
           <div className="text-center py-16">
             <BarChart3 size={64} className="text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-400 mb-2">

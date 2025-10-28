@@ -60,9 +60,12 @@ interface CreateAnalysisData {
 interface AnalysisFilters {
   asset_type?: string
   sentiment?: string
+  search?:string
   status?: string
   limit?: number
   offset?: number
+  sortBy?:string
+  ascending?:boolean
 }
 
 interface AnalysisPagination {
@@ -110,14 +113,16 @@ export const useMarketAnalysis = () => {
       setLoading(true)
       setError(null)
 
-      const params = new URLSearchParams()
-      if (filters.asset_type) params.append('asset_type', filters.asset_type)
-      if (filters.sentiment) params.append('sentiment', filters.sentiment)
-      if (filters.status) params.append('status', filters.status)
-      if (filters.limit) params.append('limit', filters.limit.toString())
-      if (filters.offset) params.append('offset', filters.offset.toString())
-
-      const headers = await getAuthHeaders()
+  const params = new URLSearchParams()
+if (filters.asset_type) params.append('asset_type', filters.asset_type)
+if (filters.sentiment) params.append('sentiment', filters.sentiment)
+if (filters.status) params.append('status', filters.status)
+if (filters.search) params.append('search', filters.search)
+if (filters.sortBy) params.append('sortBy', filters.sortBy)        // Add this
+if (filters.ascending !== undefined) params.append('ascending', filters.ascending.toString())  // Add this
+if (filters.limit) params.append('limit', filters.limit.toString())
+if (filters.offset) params.append('offset', filters.offset.toString())
+        const headers = await getAuthHeaders()
 
       const response = await fetch(`/api/market-analysis?${params.toString()}`, {
         method: 'GET',
@@ -132,13 +137,7 @@ export const useMarketAnalysis = () => {
 
       const data = await response.json()
       
-      if (filters.offset === 0) {
-        // Replace existing data for fresh fetch
-        setAnalyses(data.analyses)
-      } else {
-        // Append for pagination
-        setAnalyses(prev => [...prev, ...data.analyses])
-      }
+      setAnalyses(data.analyses)
       
       setPagination(data.pagination)
 
@@ -303,12 +302,13 @@ export const useMarketAnalysis = () => {
     }
   }
 
-  // Load initial data
+
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchAnalyses()
-    }
-  }, [isAuthenticated])
+  if (isAuthenticated) {
+    fetchAnalyses({ status: 'active', limit: 6, offset: 0 })
+  }
+}, [isAuthenticated])
+  
 
   return {
     // Data

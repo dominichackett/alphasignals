@@ -3,46 +3,35 @@ import React, { useEffect, useRef, memo, useState } from 'react';
 import Header from '@/components/Header/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMarketAnalysis } from '@/hooks/useMarketAnalysis';
+import { useProfile } from '@/hooks/userProfile';
 import { TrendingUp, BarChart3, Zap, Play, Save, Link, Download, CheckCircle, DollarSign, Lock, AlertCircle } from 'lucide-react';
-import { useBlockchainSignals } from '@/hooks/useBlockchainSignals'
-import { useTradingSignals } from '@/hooks/useTradingSignals'
+
 const Chart = () => {
   const container = useRef(null);
   const [selectedAnalysis, setSelectedAnalysis] = useState('trend');
   const [signals, setSignals] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isAddingToBlockchain, setIsAddingToBlockchain] = useState(false);
-  const [isTrading, setIsTrading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
-  const [blockchainStatus, setBlockchainStatus] = useState('');
-  const [tradeStatus, setTradeStatus] = useState('');
-  const [blockchainSignalId, setBlockchainSignalId] = useState<string | null>(null)
+
   const [savedSignalId, setSavedSignalId] = useState<string | null>(null)
 
 
-  const { 
-  isCreatingSignal, 
-  createSignalOnBlockchain, 
-  error: blockchainError 
-} = useBlockchainSignals()
 
-const { 
-  createTradingSignal, 
-  updateTradingSignal,
-  saving: savingTradingSignal
-} = useTradingSignals()
 
   // NEW: State to store captured chart image
   const [capturedChartImage, setCapturedChartImage] = useState<string | null>(null);
   
   // Track completion states
   const [isSaved, setIsSaved] = useState(false);
-  const [isPosted, setIsPosted] = useState(false);
+
 
   // Auth and database hooks
   const { isAuthenticated, loading: authLoading, signInWithSupabase } = useAuth();
   const { createAnalysis, saving: savingToDatabase } = useMarketAnalysis();
+  const { profile, loading: profileLoading } = useProfile();
+
+  const hasActiveTier = profile && profile.tier !== '' && profile.tier !== null;
 
   const analysisOptions = [
     { value: 'trend', label: 'Trend Analysis', icon: TrendingUp },
@@ -315,10 +304,7 @@ const {
     
     // Reset completion states when generating new signal
     setIsSaved(false);
-    setIsPosted(false);
     setSaveStatus('');
-    setBlockchainStatus('');
-    setTradeStatus('');
     setCapturedChartImage(null); // Reset captured image
 
     try {
@@ -526,108 +512,7 @@ const saveAnalysis = async () => {
   }
 };
 
-// Replace your existing addToBlockchain function with this:
-const addToBlockchain = async () => {
-  if (signals.length === 0 || !isSaved || !savedSignalId) return;
-  
-  setIsAddingToBlockchain(true);
-  setBlockchainStatus('');
-  
-  try {
-    // First, save the trading signal to the database using the hook
-    console.log('📊 Creating trading signal in database...');
-    
-    const tradingSignalData = {
-      analysis_id: savedSignalId,
-      asset_name: signals[0].assetName || 'Unknown Asset',
-      asset_type: mapAssetType(signals[0].assetName || 'Stock'),
-      pattern_name: signals[0].patternName || 'Technical Analysis',
-      recommendation: signals[0].recommendation || 'Hold',
-      sentiment: signals[0].sentiment || 'Neutral',
-      confidence: signals[0].confidence || 75,
-      entry_price: signals[0].priceTargets?.entry || 0,
-      exit_price: signals[0].priceTargets?.exit || null,
-      take_profit: signals[0].priceTargets?.target || null,
-      stop_loss: signals[0].priceTargets?.stopLoss || null,
-      reason: signals[0].recommendationReason || 'Based on technical analysis',
-      signal_created_at: signals[0].timestamp || new Date().toISOString(),
-      enabled: false // Will be enabled after blockchain confirmation
-    };
 
-    // Save trading signal to database using the hook
-    const savedTradingSignal = await createTradingSignal(tradingSignalData);
-    
-    if (!savedTradingSignal) {
-      throw new Error('Failed to save trading signal to database');
-    }
-
-    console.log('✅ Trading signal saved to database:', savedTradingSignal.id);
-
-    // Now create the signal on blockchain using the database ID
-    console.log('🔗 Creating signal on blockchain...');
-    
-    const blockchainResult = await createSignalOnBlockchain(savedTradingSignal.id,savedTradingSignal.entry_price, savedTradingSignal.take_profit,savedTradingSignal.stop_loss,savedTradingSignal.confidence, savedTradingSignal.asset_name,savedTradingSignal.pattern_name,  savedTradingSignal.asset_type, savedTradingSignal.recommendation,savedTradingSignal.sentiment);
-    
-    if (blockchainResult.success) {
-      setIsPosted(true);
-      setBlockchainSignalId(blockchainResult.signalId || 'N/A');
-      setBlockchainStatus(`Signal posted to blockchain!`);
-      
-      // Update the trading signal to enabled after successful blockchain creation
-      if (blockchainResult.signalId) {
-        await updateTradingSignal(savedTradingSignal.id, {
-          enabled: true,
-          blockchain_signal_id: blockchainResult.signalId
-        });
-      }
-      
-      setTimeout(() => setBlockchainStatus(''), 10000);
-    } else {
-      throw new Error(blockchainResult.error || 'Failed to create signal on blockchain');
-    }
-    
-  } catch (error) {
-    console.error('Error adding to blockchain:', error);
-    setBlockchainStatus(`Failed to add to blockchain: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    setTimeout(() => setBlockchainStatus(''), 5000);
-  } finally {
-    setIsAddingToBlockchain(false);
-  }
-};
-
-  const tradeSignal = async () => {
-    if (signals.length === 0 || !isSaved || !isPosted) return;
-    
-    setIsTrading(true);
-    setTradeStatus('');
-    
-    try {
-      // Simulate trade execution
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      
-      const tradeData = {
-        tradeId: `trade_${Date.now()}`,
-        asset: signals[0].assetName,
-        action: signals[0].recommendation,
-        entryPrice: signals[0].priceTargets.entry,
-        quantity: Math.floor(Math.random() * 100) + 10,
-        orderType: 'Market',
-        executedAt: new Date().toISOString(),
-        status: 'Executed',
-        fees: Math.round(signals[0].priceTargets.entry * 0.001 * 100) / 100 // 0.1% fee
-      };
-      
-      setTradeStatus(`Trade executed successfully! ${tradeData.action} ${tradeData.quantity} shares of ${tradeData.asset} at $${tradeData.entryPrice}`);
-      setTimeout(() => setTradeStatus(''), 5000);
-      
-    } catch (error) {
-      console.error('Error executing trade:', error);
-      setTradeStatus('Failed to execute trade');
-      setTimeout(() => setTradeStatus(''), 3000);
-    } finally {
-      setIsTrading(false);
-    }
-  };
 
  
   return (
@@ -697,16 +582,23 @@ const addToBlockchain = async () => {
             {/* Generate Button */}
             <button
               onClick={generateSignal}
-              disabled={isGenerating}
+              disabled={isGenerating || !hasActiveTier}
               className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-                isGenerating
+                isGenerating || !hasActiveTier
                   ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white transform hover:scale-105'
+                  : 'cursor-pointer bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white transform hover:scale-105'
               }`}
+              title={!hasActiveTier ? "Upgrade your plan to generate AI signals" : ""}
             >
               <Play size={18} />
               {isGenerating ? 'Analyzing Chart...' : 'Generate AI Signal'}
             </button>
+
+            {!hasActiveTier && (
+              <p className="text-xs text-gray-400 mt-2 text-center">
+                Please upgrade your plan to use the AI Signal Generator.
+              </p>
+            )}
 
             {/* NEW: Image Capture Status */}
             {capturedChartImage && (
@@ -762,71 +654,12 @@ const addToBlockchain = async () => {
                   )}
                 </button>
                 
-                {/* Post Signal Button */}
-          <button
-  onClick={addToBlockchain}
-  disabled={isAddingToBlockchain || isCreatingSignal || savingTradingSignal || !isSaved || isPosted}
-  className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-    isPosted
-      ? 'bg-orange-700 text-orange-200 cursor-default'
-      : !isSaved
-      ? 'bg-gray-500 cursor-not-allowed text-gray-400'
-      : (isAddingToBlockchain || isCreatingSignal || savingTradingSignal)
-      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-      : 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white transform hover:scale-105 shadow-lg'
-  }`}
-  title={!isSaved ? 'Save analysis first to post signal' : ''}
->
-  {isPosted ? (
-    <>
-      <CheckCircle size={18} />
-      Posted to Blockchain
-    </>
-  ) : (isAddingToBlockchain || isCreatingSignal || savingTradingSignal) ? (
-    <>
-      <Link size={18} className="animate-pulse" />
-      {savingTradingSignal ? 'Saving Signal...' : 
-       isCreatingSignal ? 'Creating on Blockchain...' : 
-       'Posting...'}
-    </>
-  ) : (
-    <>
-      <Link size={18} />
-      Post Signal
-    </>
-  )}
-</button>
-
-                {/* Trade Signal Button */}
-                <button
-                  onClick={tradeSignal}
-                  disabled={isTrading || !isSaved || !isPosted}
-                  className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
-                    !isSaved || !isPosted
-                      ? 'bg-gray-500 cursor-not-allowed text-gray-400'
-                      : isTrading
-                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                      : 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white transform hover:scale-105 shadow-lg'
-                  }`}
-                  title={!isSaved || !isPosted ? 'Save and post signal first to trade' : ''}
-                >
-                  {isTrading ? (
-                    <>
-                      <DollarSign size={18} className="animate-pulse" />
-                      Trading...
-                    </>
-                  ) : (
-                    <>
-                      <DollarSign size={18} />
-                      Trade Signal
-                    </>
-                  )}
-                </button>
+                
               </div>
             </div>
 
             {/* Status Messages */}
-            {(saveStatus || blockchainStatus || tradeStatus) && (
+            {(saveStatus) && (
               <div className="mb-4 space-y-2">
                 {saveStatus && (
                   <div className={`p-3 rounded-lg flex items-center gap-2 ${
@@ -838,34 +671,7 @@ const addToBlockchain = async () => {
                     {saveStatus}
                   </div>
                 )}
-               {blockchainError && (
-  <div className="mb-4">
-    <div className="p-3 rounded-lg flex items-center gap-2 bg-red-500/20 border border-red-500 text-red-400">
-      <AlertCircle size={16} />
-      Blockchain Error: {blockchainError}
-    </div>
-  </div>
-)}
-                {blockchainStatus && (
-                  <div className={`p-3 rounded-lg flex items-center gap-2 ${
-                    blockchainStatus.includes('posted') 
-                      ? 'bg-orange-500/20 border border-orange-500 text-orange-400' 
-                      : 'bg-red-500/20 border border-red-500 text-red-400'
-                  }`}>
-                    <Link size={16} />
-                    {blockchainStatus}
-                  </div>
-                )}
-                {tradeStatus && (
-                  <div className={`p-3 rounded-lg flex items-center gap-2 ${
-                    tradeStatus.includes('executed') 
-                      ? 'bg-purple-500/20 border border-purple-500 text-purple-400' 
-                      : 'bg-red-500/20 border border-red-500 text-red-400'
-                  }`}>
-                    <DollarSign size={16} />
-                    {tradeStatus}
-                  </div>
-                )}
+
               </div>
             )}
             
